@@ -4,6 +4,10 @@ Fork of the Telegraf Project.
 
 > Added redis subscriber plugin (`plugins/input/redis_sub`)
 
+## Requirements
+
+- Golang `> 1.25.0`
+
 ## Compilation
 
 ```
