@@ -1,9 +1,18 @@
-# ![tiger](assets/TelegrafTigerSmall.png "tiger") Telegraf
+# ![tiger](assets/TelegrafTigerSmall.png "tiger") AE - Telegraf
 
-[![GoDoc](https://img.shields.io/badge/doc-reference-00ADD8.svg?logo=go)](https://godoc.org/github.com/influxdata/telegraf)
-[![Docker pulls](https://img.shields.io/docker/pulls/library/telegraf.svg)](https://hub.docker.com/_/telegraf/)
-[![Go Report Card](https://goreportcard.com/badge/github.com/influxdata/telegraf)](https://goreportcard.com/report/github.com/influxdata/telegraf)
-[![Circle CI](https://circleci.com/gh/influxdata/telegraf.svg?style=svg)](https://circleci.com/gh/influxdata/telegraf)
+Fork of the Telegraf Project.
+
+> Added redis subscriber plugin (`plugins/input/redis_sub`)
+
+## Compilation
+
+```
+make build
+```
+
+This will produce the binary in root folder, `telegraf`.
+
+## Telegraf
 
 Telegraf is an agent for collecting, processing, aggregating, and writing
 metrics, logs, and other arbitrary data.
