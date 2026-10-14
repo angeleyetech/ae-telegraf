@@ -59,7 +59,6 @@ func (r *RedisSub) SetParser(parser telegraf.Parser) {
 
 // Start begins reading from Redis Pub/Sub
 func (r *RedisSub) Start(acc telegraf.Accumulator) error {
-
 	if r.parser == nil {
 		r.Log.Error("parser is nil")
 		return fmt.Errorf("parser not initialized")
@@ -114,7 +113,7 @@ func (r *RedisSub) Start(acc telegraf.Accumulator) error {
 						r.Log.Warn("Redis subscription closed, reconnecting...")
 						_ = sub.Close()
 						time.Sleep(5 * time.Second)
-						break // exit inner loop → triggers outer reconnect
+						break
 					}
 
 					// Parse and send to accumulator
