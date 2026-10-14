@@ -513,7 +513,7 @@ func TestHTTP_Write(t *testing.T) {
 			m := metric.New(
 				"cpu",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42.0,
 				},
 				time.Unix(0, 0),
@@ -561,7 +561,7 @@ func TestHTTP_WritePathPrefix(t *testing.T) {
 	m := metric.New(
 		"cpu",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": 42.0,
 		},
 		time.Unix(0, 0),
@@ -630,7 +630,7 @@ func TestHTTP_WriteContentEncodingGzip(t *testing.T) {
 	m := metric.New(
 		"cpu",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": 42.0,
 		},
 		time.Unix(0, 0),
@@ -783,12 +783,12 @@ func TestHTTP_WriteDatabaseTagWorksOnRetry(t *testing.T) {
 	require.NoError(t, err)
 
 	metrics := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"cpu",
 			map[string]string{
 				"database": "foo",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 42.0,
 			},
 			time.Unix(0, 0),
@@ -822,12 +822,12 @@ func TestDBRPTags(t *testing.T) {
 				Database: "telegraf",
 			},
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{
 						"database": "foo",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),
@@ -847,10 +847,10 @@ func TestDBRPTags(t *testing.T) {
 				RetentionPolicy: "foo",
 			},
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),
@@ -872,12 +872,12 @@ func TestDBRPTags(t *testing.T) {
 				Log:                  testutil.Logger{},
 			},
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{
 						"rp": "foo",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),
@@ -903,10 +903,10 @@ func TestDBRPTags(t *testing.T) {
 				Log:                  testutil.Logger{},
 			},
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),
@@ -928,10 +928,10 @@ func TestDBRPTags(t *testing.T) {
 				Log:                  testutil.Logger{},
 			},
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),
@@ -954,12 +954,12 @@ func TestDBRPTags(t *testing.T) {
 				Log:                       testutil.Logger{},
 			},
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{
 						"rp": "foo",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),
@@ -985,12 +985,12 @@ func TestDBRPTags(t *testing.T) {
 				Log:                  testutil.Logger{},
 			},
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{
 						"rp": "foo",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),
@@ -1095,10 +1095,10 @@ func TestDBRPTagsCreateDatabaseNotCalledOnRetryAfterForbidden(t *testing.T) {
 	ts.Config.Handler = handlers
 
 	metrics := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"cpu",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"time_idle": 42.0,
 			},
 			time.Unix(0, 0),
@@ -1191,10 +1191,10 @@ func TestDBRPTagsCreateDatabaseCalledOnDatabaseNotFound(t *testing.T) {
 	ts.Config.Handler = handlers
 
 	metrics := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"cpu",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"time_idle": 42.0,
 			},
 			time.Unix(0, 0),
@@ -1249,10 +1249,10 @@ func TestDBNotFoundShouldDropMetricWhenSkipDatabaseCreateIsTrue(t *testing.T) {
 	ts.Config.Handler = http.HandlerFunc(f)
 
 	metrics := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"cpu",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"time_idle": 42.0,
 			},
 			time.Unix(0, 0),

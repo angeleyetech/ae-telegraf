@@ -87,12 +87,12 @@ func (wg *Wireguard) enumerateDevices() ([]*wgtypes.Device, error) {
 }
 
 func gatherDeviceMetrics(acc telegraf.Accumulator, device *wgtypes.Device) {
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"listen_port":   device.ListenPort,
 		"firewall_mark": device.FirewallMark,
 	}
 
-	gauges := map[string]interface{}{
+	gauges := map[string]any{
 		"peers": len(device.Peers),
 	}
 
@@ -106,10 +106,14 @@ func gatherDeviceMetrics(acc telegraf.Accumulator, device *wgtypes.Device) {
 }
 
 func gatherDevicePeerMetrics(acc telegraf.Accumulator, device *wgtypes.Device, peer wgtypes.Peer) {
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"persistent_keepalive_interval_ns": peer.PersistentKeepaliveInterval.Nanoseconds(),
 		"protocol_version":                 peer.ProtocolVersion,
 		"allowed_ips":                      len(peer.AllowedIPs),
+	}
+
+	if peer.Endpoint != nil {
+		fields["endpoint"] = peer.Endpoint.String()
 	}
 
 	if len(peer.AllowedIPs) > 0 {
@@ -120,7 +124,7 @@ func gatherDevicePeerMetrics(acc telegraf.Accumulator, device *wgtypes.Device, p
 		fields["allowed_peer_cidr"] = strings.Join(cidrs, ",")
 	}
 
-	gauges := map[string]interface{}{
+	gauges := map[string]any{
 		"last_handshake_time_ns": peer.LastHandshakeTime.UnixNano(),
 		"rx_bytes":               peer.ReceiveBytes,
 		"tx_bytes":               peer.TransmitBytes,

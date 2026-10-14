@@ -7,16 +7,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/plugins/outputs/health"
-	"github.com/influxdata/telegraf/testutil"
 )
 
 func TestFieldFound(t *testing.T) {
 	metrics := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"cpu",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"time_idle": 42.0,
 			},
 			time.Now()),
@@ -31,10 +31,10 @@ func TestFieldFound(t *testing.T) {
 
 func TestFieldNotFound(t *testing.T) {
 	metrics := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"cpu",
 			map[string]string{},
-			map[string]interface{}{},
+			map[string]any{},
 			time.Now()),
 	}
 
@@ -47,15 +47,15 @@ func TestFieldNotFound(t *testing.T) {
 
 func TestOneMetricWithFieldIsSuccess(t *testing.T) {
 	metrics := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"cpu",
 			map[string]string{},
-			map[string]interface{}{},
+			map[string]any{},
 			time.Now()),
-		testutil.MustMetric(
+		metric.New(
 			"cpu",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"time_idle": 42.0,
 			},
 			time.Now()),

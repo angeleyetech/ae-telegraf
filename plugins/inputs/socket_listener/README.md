@@ -23,10 +23,9 @@ normal plugins:
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -37,16 +36,18 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
 [[inputs.socket_listener]]
   ## URL to listen on
   # service_address = "tcp://:8094"
-  # service_address = "tcp://127.0.0.1:http"
   # service_address = "tcp4://:8094"
   # service_address = "tcp6://:8094"
   # service_address = "tcp6://[2001:db8::1]:8094"
   # service_address = "udp://:8094"
   # service_address = "udp4://:8094"
+  # service_address = "udp4://239.0.0.1:40000%enp101s0f1np1"
   # service_address = "udp6://:8094"
+  # service_address = "udp6://[ff02::1%eth0]:8094"
+  # service_address = "udp6://[ff02::1]:8094%eth0"
   # service_address = "unix:///tmp/telegraf.sock"
   # service_address = "unixgram:///tmp/telegraf.sock"
-  # service_address = "vsock://cid:port"
+  # service_address = "vsock://cid:80"
 
   ## Permission for unix sockets (only available on unix sockets)
   ## This setting may not be respected by some platforms. To safely restrict
@@ -85,6 +86,13 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
   ## Maximum size of decoded packet (in bytes when no unit specified)
   # max_decompression_size = "500MB"
+
+  ## List of allowed source IP addresses for incoming packets/messages.
+  ## If not specified or empty, all sources are allowed.
+  # allowed_sources = []
+
+  ## Source IP for Source-Specific Multicast (SSM / IGMPv3)
+  # multicast_source = ""
 
   ## Message splitting strategy and corresponding settings for stream sockets
   ## (tcp, tcp4, tcp6, unix or unixpacket). The setting is ignored for packet
@@ -200,6 +208,41 @@ sysctl -w kern.ipc.maxsockbuf=9646900
 ```
 
 [kernel_source]: https://github.com/freebsd/freebsd/blob/master/sys/kern/uipc_sockbuf.c#L63-L64
+
+### Multicast
+
+Listening to multicast packets can be done by specifying a multicast group
+address for the `service_address` value, e.g. `239.0.0.1`. To ensure the correct
+interface joins the multicast group, you can append its name at the end of the
+`service_address` separated by a `%`. The name is used as reported by the
+operating system, e.g. `vEthernet (Default Switch)` on Windows. See the example
+below.
+
+In the example, SSM is also used to filter packets only coming from source
+`10.65.4.2`. The difference between SSM and `allowed_sources` is where the
+data packets are accepted. With `multicast_source`, the packets are filtered at
+the kernel level, while with `allowed_sources` the packets are filtered
+within Telegraf. This means that with `allowed_sources` all packets are
+accepted by the kernel, leading to a higher load on the network stack.
+
+When using multicast, SSM's `multicast_source` is preferred over
+`allowed_sources`. With unicast, `multicast_source` has no effect and
+`allowed_sources` is required for source filtering.
+
+```toml
+[[inputs.socket_listener]]
+  service_address = "udp4://239.0.0.1:40000%enp101s0f1np1"
+  multicast_source = "10.65.4.2"
+```
+
+Using an IPv6 address with multicast, can be done by either specifying a
+zone id or using a trailing interface name. These options are mutually
+exclusive.
+
+With a `vsock` address the listener binds the context ID given in the address,
+so it has to be a CID of the machine Telegraf runs on. Any other CID, for
+example the host CID on a guest, is rejected on startup. Use that machine's CID
+in the client address to reach the listener from another context.
 
 ## Metrics
 

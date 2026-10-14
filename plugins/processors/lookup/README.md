@@ -24,10 +24,9 @@ existing tag-values are overwritten.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -68,14 +67,13 @@ In the `json` format, the input `files` must have the following format
 {
   "keyA": {
     "tag-name1": "tag-value1",
-    ...
-    "tag-nameN": "tag-valueN",
+    "tag-name...": "tag-value...",
+    "tag-nameN": "tag-valueN"
   },
-  ...
   "keyZ": {
     "tag-name1": "tag-value1",
-    ...
-    "tag-nameM": "tag-valueM",
+    "tag-name...": "tag-value...",
+    "tag-nameM": "tag-valueM"
   }
 }
 ```
@@ -97,8 +95,8 @@ keyZ,tag-name1,tag-value1,...,tag-nameM,tag-valueM
 
 The formatting uses commas (`,`) as separators and allows for comments defined
 as lines starting with a hash (`#`). All lines can have different numbers but
-must at least contain three columns and follow the name/value pair format, i.e.
-there cannot be a name without value.
+must at least contain three columns and follow the name/value pair format.
+There cannot be a name without value.
 
 ### `csv_key_values` format
 
@@ -106,7 +104,7 @@ This setting specifies comma-separated-value files with the following format
 
 ```csv
 # Optional comments
-ignored,tag-name1,...,tag-valueN
+ignored,tag-name1,...,tag-nameN
 keyA,tag-value1,...,,,,
 keyB,tag-value1,,,,...,
 ...
@@ -134,7 +132,7 @@ With a lookup table of
   "xyzzy-red": {
     "location": "us-west",
     "rack": "C01-42"
-  },
+  }
 }
 ```
 

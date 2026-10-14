@@ -10,18 +10,17 @@ This plugin writes metrics to a [Redis time-series][redists] server.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
-## Secret-store support
+## Secret store support
 
-This plugin supports secrets from secret-stores for the `username` and
+This plugin supports secrets from secret stores for the `username` and
 `password` option.
-See the [secret-store documentation][SECRETSTORE] for more details on how
+See the [secret store documentation][SECRETSTORE] for more details on how
 to use them.
 
 [SECRETSTORE]: ../../../docs/CONFIGURATION.md#secret-store-secrets
@@ -41,6 +40,13 @@ to use them.
 
   ## Timeout for operations such as ping or sending metrics
   # timeout = "10s"
+
+  ## Set a time-to-live (TTL) on each Redis key
+  ## If set, Redis will expire the key after the specified duration
+  ## The TTL is refreshed on every write, so the key only expires
+  ## if no new data arrives within the configured period
+  ## Disabled by default (no expiry)
+  # expire = ""
 
   ## Enable attempt to convert string fields to numeric values
   ## If "false" or in case the string value cannot be converted the string

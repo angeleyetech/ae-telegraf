@@ -13,17 +13,16 @@ This plugin gathers metrics from a [Prometheus][prometheus] endpoint using
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
-## Secret-store support
+## Secret store support
 
-This plugin supports secrets from secret-stores for the `username`, `password`
-and `token` option. See the [secret-store documentation][SECRETSTORE] for
+This plugin supports secrets from secret stores for the `username`, `password`
+and `token` option. See the [secret store documentation][SECRETSTORE] for
 more details on how to use them.
 
 [SECRETSTORE]: ../../../docs/CONFIGURATION.md#secret-store-secrets
@@ -51,6 +50,9 @@ more details on how to use them.
   # max_idle_conn = 0
   # max_idle_conn_per_host = 0
   # response_timeout = "0s"
+
+  ## Use the local address for connecting, assigned by the OS by default
+  # local_address = ""
 
   ## Optional proxy settings
   # use_system_proxy = false

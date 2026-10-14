@@ -1,6 +1,7 @@
 package http_response
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,12 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/armon/go-socks5"
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/internal"
-	"github.com/influxdata/telegraf/plugins/common/tls"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -38,7 +40,7 @@ func checkAbsentTags(t *testing.T, tags []string, acc *testutil.Accumulator) {
 
 // Receives a dictionary and with expected fields and their values. If a value is nil, it will only check
 // that the field exists, but not its contents
-func checkFields(t *testing.T, fields map[string]interface{}, acc *testutil.Accumulator) {
+func checkFields(t *testing.T, fields map[string]any, acc *testutil.Accumulator) {
 	t.Helper()
 	for key, field := range fields {
 		switch v := field.(type) {
@@ -66,7 +68,7 @@ func checkFields(t *testing.T, fields map[string]interface{}, acc *testutil.Accu
 
 // Receives a dictionary and with expected tags and their values. If a value is nil, it will only check
 // that the tag exists, but not its contents
-func checkTags(t *testing.T, tags map[string]interface{}, acc *testutil.Accumulator) {
+func checkTags(t *testing.T, tags map[string]any, acc *testutil.Accumulator) {
 	for key, tag := range tags {
 		switch v := tag.(type) {
 		case string:
@@ -149,7 +151,7 @@ func setUpTestMux() http.Handler {
 	return mux
 }
 
-func checkOutput(t *testing.T, acc *testutil.Accumulator, presentFields, presentTags map[string]interface{}, absentFields, absentTags []string) {
+func checkOutput(t *testing.T, acc *testutil.Accumulator, presentFields, presentTags map[string]any, absentFields, absentTags []string) {
 	t.Helper()
 	if presentFields != nil {
 		checkFields(t, presentFields, acc)
@@ -204,14 +206,14 @@ func TestHeaders(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -242,14 +244,14 @@ func TestFields(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -281,7 +283,7 @@ func TestResponseBodyField(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
@@ -289,7 +291,7 @@ func TestResponseBodyField(t *testing.T) {
 		"content_length":     nil,
 		"my_body_field":      "hit the good page!",
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -316,11 +318,11 @@ func TestResponseBodyField(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields = map[string]interface{}{
+	expectedFields = map[string]any{
 		"result_type": "body_read_error",
 		"result_code": 2,
 	}
-	expectedTags = map[string]interface{}{
+	expectedTags = map[string]any{
 		"server": nil,
 		"method": "GET",
 		"result": "body_read_error",
@@ -352,7 +354,7 @@ func TestResponseBodyFormField(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
@@ -360,7 +362,7 @@ func TestResponseBodyFormField(t *testing.T) {
 		"content_length":     nil,
 		"my_body_field":      "",
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "POST",
 		"status_code": "200",
@@ -391,11 +393,11 @@ func TestResponseBodyMaxSize(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"result_type": "body_read_error",
 		"result_code": 2,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server": nil,
 		"method": "GET",
 		"result": "body_read_error",
@@ -425,14 +427,14 @@ func TestHTTPHeaderTags(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":       nil,
 		"method":       "GET",
 		"status_code":  "200",
@@ -460,7 +462,7 @@ func TestHTTPHeaderTags(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedTags = map[string]interface{}{
+	expectedTags = map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -483,11 +485,11 @@ func TestHTTPHeaderTags(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields = map[string]interface{}{
+	expectedFields = map[string]any{
 		"result_type": "connection_failed",
 		"result_code": 3,
 	}
-	expectedTags = map[string]interface{}{
+	expectedTags = map[string]any{
 		"server": nil,
 		"method": "GET",
 		"result": "connection_failed",
@@ -544,14 +546,14 @@ func TestInterface(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -559,6 +561,115 @@ func TestInterface(t *testing.T) {
 	}
 	absentFields := []string{"response_string_match"}
 	checkOutput(t, &acc, expectedFields, expectedTags, absentFields, nil)
+}
+
+type socks5TestResolver map[string]net.IP
+
+func (r socks5TestResolver) Resolve(ctx context.Context, name string) (context.Context, net.IP, error) {
+	ip, ok := r[name]
+	if !ok {
+		return ctx, nil, fmt.Errorf("unknown hostname %q", name)
+	}
+	return ctx, ip, nil
+}
+
+func TestSocks5Proxy(t *testing.T) {
+	const (
+		proxyHostname     = "telegraf.invalid"
+		httpProxyHostname = "http-proxy.telegraf.invalid"
+		proxyUsername     = "user"
+		proxyPassword     = "password"
+	)
+
+	mux := setUpTestMux()
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	// Only the SOCKS5 proxy can resolve this hostname, so a direct dial fails.
+	serverURL, err := url.Parse(ts.URL)
+	require.NoError(t, err)
+	serverIP := net.ParseIP(serverURL.Hostname())
+	require.NotNil(t, serverIP)
+	serverURL.Path = "/good"
+	targetURL := *serverURL
+	targetURL.Host = net.JoinHostPort(proxyHostname, serverURL.Port())
+
+	proxyListener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer proxyListener.Close()
+
+	proxyServer, err := socks5.New(&socks5.Config{
+		AuthMethods: []socks5.Authenticator{socks5.UserPassAuthenticator{
+			Credentials: socks5.StaticCredentials{proxyUsername: proxyPassword},
+		}},
+		Resolver: socks5TestResolver{proxyHostname: serverIP, httpProxyHostname: serverIP},
+	})
+	require.NoError(t, err)
+	go func() {
+		if err := proxyServer.Serve(proxyListener); err != nil && !errors.Is(err, net.ErrClosed) {
+			t.Error(err)
+		}
+	}()
+
+	tests := []struct {
+		name      string
+		url       string
+		httpProxy string
+	}{
+		{
+			name: "without http proxy",
+			url:  targetURL.String(),
+		},
+		{
+			// The test server also acts as the HTTP proxy as it serves the
+			// absolute request URL by path. The target hostname is unknown to
+			// everyone, so the request only succeeds through both proxies.
+			name:      "chained http proxy",
+			url:       "http://target.telegraf.invalid/good",
+			httpProxy: "http://" + net.JoinHostPort(httpProxyHostname, serverURL.Port()),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &HTTPResponse{
+				Log:                 testutil.Logger{},
+				URLs:                []string{tt.url},
+				HTTPProxy:           tt.httpProxy,
+				Method:              "GET",
+				ResponseTimeout:     config.Duration(time.Second * 20),
+				Socks5ProxyEnabled:  true,
+				Socks5ProxyAddress:  proxyListener.Addr().String(),
+				Socks5ProxyUsername: proxyUsername,
+				Socks5ProxyPassword: proxyPassword,
+			}
+
+			var acc testutil.Accumulator
+			require.NoError(t, h.Init())
+
+			// The system wide proxy settings must be ignored with SOCKS5. We cannot
+			// check this via HTTP_PROXY as net/http reads it only once per process.
+			transport := h.clients[0].httpClient.(*http.Client).Transport.(*http.Transport)
+			require.Equal(t, tt.httpProxy != "", transport.Proxy != nil)
+
+			require.NoError(t, h.Gather(&acc))
+
+			expectedFields := map[string]any{
+				"http_response_code": http.StatusOK,
+				"result_type":        "success",
+				"result_code":        0,
+				"response_time":      nil,
+				"content_length":     nil,
+			}
+			expectedTags := map[string]any{
+				"server":      nil,
+				"method":      "GET",
+				"status_code": "200",
+				"result":      "success",
+			}
+			checkOutput(t, &acc, expectedFields, expectedTags, []string{"response_string_match"}, nil)
+		})
+	}
 }
 
 func TestRedirects(t *testing.T) {
@@ -582,14 +693,14 @@ func TestRedirects(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -614,11 +725,11 @@ func TestRedirects(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields = map[string]interface{}{
+	expectedFields = map[string]any{
 		"result_type": "connection_failed",
 		"result_code": 3,
 	}
-	expectedTags = map[string]interface{}{
+	expectedTags = map[string]any{
 		"server": nil,
 		"method": "GET",
 		"result": "connection_failed",
@@ -627,7 +738,7 @@ func TestRedirects(t *testing.T) {
 	absentTags := []string{"status_code"}
 	checkOutput(t, &acc, expectedFields, expectedTags, nil, nil)
 
-	expectedFields = map[string]interface{}{"result_type": "connection_failed"}
+	expectedFields = map[string]any{"result_type": "connection_failed"}
 	checkOutput(t, &acc, expectedFields, expectedTags, absentFields, absentTags)
 }
 
@@ -652,14 +763,14 @@ func TestMethod(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "POST",
 		"status_code": "200",
@@ -684,14 +795,14 @@ func TestMethod(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields = map[string]interface{}{
+	expectedFields = map[string]any{
 		"http_response_code": http.StatusMethodNotAllowed,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     nil,
 	}
-	expectedTags = map[string]interface{}{
+	expectedTags = map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "405",
@@ -717,14 +828,14 @@ func TestMethod(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields = map[string]interface{}{
+	expectedFields = map[string]any{
 		"http_response_code": http.StatusMethodNotAllowed,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     nil,
 	}
-	expectedTags = map[string]interface{}{
+	expectedTags = map[string]any{
 		"server":      nil,
 		"method":      "head",
 		"status_code": "405",
@@ -755,14 +866,14 @@ func TestBody(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -786,12 +897,12 @@ func TestBody(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields = map[string]interface{}{
+	expectedFields = map[string]any{
 		"http_response_code": http.StatusBadRequest,
 		"result_type":        "success",
 		"result_code":        0,
 	}
-	expectedTags = map[string]interface{}{
+	expectedTags = map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "400",
@@ -823,7 +934,7 @@ func TestStringMatch(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code":    http.StatusOK,
 		"response_string_match": 1,
 		"result_type":           "success",
@@ -831,7 +942,7 @@ func TestStringMatch(t *testing.T) {
 		"response_time":         nil,
 		"content_length":        nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -862,7 +973,7 @@ func TestStringMatchJson(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code":    http.StatusOK,
 		"response_string_match": 1,
 		"result_type":           "success",
@@ -870,7 +981,7 @@ func TestStringMatchJson(t *testing.T) {
 		"response_time":         nil,
 		"content_length":        nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -901,7 +1012,7 @@ func TestStringMatchFail(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code":    http.StatusOK,
 		"response_string_match": 0,
 		"result_type":           "response_string_mismatch",
@@ -909,7 +1020,7 @@ func TestStringMatchFail(t *testing.T) {
 		"response_time":         nil,
 		"content_length":        nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -943,11 +1054,11 @@ func TestTimeout(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"result_type": "timeout",
 		"result_code": 4,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server": nil,
 		"method": "GET",
 		"result": "timeout",
@@ -1007,11 +1118,11 @@ func TestNetworkErrors(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"result_type": "dns_error",
 		"result_code": 5,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server": nil,
 		"method": "GET",
 		"result": "dns_error",
@@ -1034,11 +1145,11 @@ func TestNetworkErrors(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields = map[string]interface{}{
+	expectedFields = map[string]any{
 		"result_type": "connection_failed",
 		"result_code": 3,
 	}
-	expectedTags = map[string]interface{}{
+	expectedTags = map[string]any{
 		"server": nil,
 		"method": "GET",
 		"result": "connection_failed",
@@ -1069,14 +1180,14 @@ func TestContentLength(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     len([]byte("hit the good page!")),
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -1101,14 +1212,14 @@ func TestContentLength(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields = map[string]interface{}{
+	expectedFields = map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     len([]byte("sent a body!")),
 	}
-	expectedTags = map[string]interface{}{
+	expectedTags = map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -1142,7 +1253,7 @@ func TestRedirect(t *testing.T) {
 	require.NoError(t, h.Gather(&acc))
 
 	expected := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"http_response",
 			map[string]string{
 				"server":      ts.URL,
@@ -1150,7 +1261,7 @@ func TestRedirect(t *testing.T) {
 				"result":      "success",
 				"status_code": "301",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"result_code":           0,
 				"result_type":           "success",
 				"http_response_code":    301,
@@ -1197,14 +1308,14 @@ func TestBasicAuth(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -1212,6 +1323,55 @@ func TestBasicAuth(t *testing.T) {
 	}
 	absentFields := []string{"response_string_match"}
 	checkOutput(t, &acc, expectedFields, expectedTags, absentFields, nil)
+}
+
+func TestTokenAuth(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if aHeader := r.Header.Get("Authorization"); aHeader != "Bearer my-token" {
+			w.WriteHeader(http.StatusInternalServerError)
+			t.Errorf("Not equal, expected: %q, actual: %q", "Bearer my-token", aHeader)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	h := &HTTPResponse{
+		Log:             testutil.Logger{},
+		URLs:            []string{ts.URL + "/good"},
+		Method:          "GET",
+		ResponseTimeout: config.Duration(time.Second * 20),
+		Token:           config.NewSecret([]byte("my-token")),
+	}
+
+	var acc testutil.Accumulator
+	require.NoError(t, h.Init())
+	require.NoError(t, h.Gather(&acc))
+
+	expectedFields := map[string]any{
+		"http_response_code": http.StatusOK,
+		"result_type":        "success",
+		"result_code":        0,
+		"response_time":      nil,
+		"content_length":     nil,
+	}
+	expectedTags := map[string]any{
+		"server":      nil,
+		"method":      "GET",
+		"status_code": "200",
+		"result":      "success",
+	}
+	absentFields := []string{"response_string_match"}
+	checkOutput(t, &acc, expectedFields, expectedTags, absentFields, nil)
+}
+
+func TestTokenConflictsWithBearerTokenFile(t *testing.T) {
+	h := &HTTPResponse{
+		BearerToken: "/path/to/token",
+		Token:       config.NewSecret([]byte("my-token")),
+	}
+
+	require.ErrorContains(t, h.Init(), "either use 'bearer_token' or 'token' not both")
 }
 
 func TestStatusCodeMatchFail(t *testing.T) {
@@ -1230,7 +1390,7 @@ func TestStatusCodeMatchFail(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code":         http.StatusNoContent,
 		"response_status_code_match": 0,
 		"result_type":                "response_status_code_mismatch",
@@ -1238,7 +1398,7 @@ func TestStatusCodeMatchFail(t *testing.T) {
 		"response_time":              nil,
 		"content_length":             nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      http.MethodGet,
 		"status_code": "204",
@@ -1263,7 +1423,7 @@ func TestStatusCodeMatch(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code":         http.StatusNoContent,
 		"response_status_code_match": 1,
 		"result_type":                "success",
@@ -1271,7 +1431,7 @@ func TestStatusCodeMatch(t *testing.T) {
 		"response_time":              nil,
 		"content_length":             nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      http.MethodGet,
 		"status_code": "204",
@@ -1297,7 +1457,7 @@ func TestStatusCodeAndStringMatch(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code":         http.StatusOK,
 		"response_status_code_match": 1,
 		"response_string_match":      1,
@@ -1306,7 +1466,7 @@ func TestStatusCodeAndStringMatch(t *testing.T) {
 		"response_time":              nil,
 		"content_length":             nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      http.MethodGet,
 		"status_code": "200",
@@ -1332,7 +1492,7 @@ func TestStatusCodeAndStringMatchFail(t *testing.T) {
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code":         http.StatusNoContent,
 		"response_status_code_match": 0,
 		"response_string_match":      0,
@@ -1341,7 +1501,7 @@ func TestStatusCodeAndStringMatchFail(t *testing.T) {
 		"response_time":              nil,
 		"content_length":             nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      http.MethodGet,
 		"status_code": "204",
@@ -1362,28 +1522,26 @@ func TestSNI(t *testing.T) {
 	defer ts.Close()
 
 	h := &HTTPResponse{
-		Log:             testutil.Logger{},
-		URLs:            []string{ts.URL + "/good"},
-		Method:          "GET",
-		ResponseTimeout: config.Duration(time.Second * 20),
-		ClientConfig: tls.ClientConfig{
-			InsecureSkipVerify: true,
-			ServerName:         "super-special-hostname.example.com",
-		},
+		Log:                testutil.Logger{},
+		URLs:               []string{ts.URL + "/good"},
+		Method:             "GET",
+		ResponseTimeout:    config.Duration(time.Second * 20),
+		InsecureSkipVerify: true,
+		ServerName:         "super-special-hostname.example.com",
 	}
 
 	var acc testutil.Accumulator
 	require.NoError(t, h.Init())
 	require.NoError(t, h.Gather(&acc))
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"http_response_code": http.StatusOK,
 		"result_type":        "success",
 		"result_code":        0,
 		"response_time":      nil,
 		"content_length":     nil,
 	}
-	expectedTags := map[string]interface{}{
+	expectedTags := map[string]any{
 		"server":      nil,
 		"method":      "GET",
 		"status_code": "200",
@@ -1406,9 +1564,6 @@ func Test_isURLInIPv6(t *testing.T) {
 			want:    true,
 		}, {
 			address: parseURL(t, "https://[2001:db8:a0b:12f0::1%25eth0]:15000/"), // `%25` escapes `%`
-			want:    true,
-		}, {
-			address: parseURL(t, "https://2001:0db8:0001:0000:0000:0ab9:C0A8:0102"),
 			want:    true,
 		}, {
 			address: parseURL(t, "http://[2607:f8b0:4005:802::1007]/"),

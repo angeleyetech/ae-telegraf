@@ -2,11 +2,13 @@ package opcua_listener
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/docker/go-connections/nat"
+	gopcua "github.com/gopcua/opcua"
 	"github.com/gopcua/opcua/ua"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -26,7 +28,7 @@ type opcTags struct {
 	namespace      string
 	identifierType string
 	identifier     string
-	want           interface{}
+	want           any
 }
 
 func mapOPCTag(tags opcTags) (out input.NodeSettings) {
@@ -39,26 +41,37 @@ func mapOPCTag(tags opcTags) (out input.NodeSettings) {
 
 func TestInitPluginWithBadConnectFailBehaviorValue(t *testing.T) {
 	plugin := OpcUaListener{
-		subscribeClientConfig: subscribeClientConfig{
-			InputClientConfig: input.InputClientConfig{
-				OpcUAClientConfig: opcua.OpcUAClientConfig{
-					Endpoint:       "opc.tcp://notarealserver:4840",
-					SecurityPolicy: "None",
-					SecurityMode:   "None",
-					ConnectTimeout: config.Duration(5 * time.Second),
-					RequestTimeout: config.Duration(10 * time.Second),
-				},
-				MetricName: "opcua",
-				Timestamp:  input.TimestampSourceTelegraf,
-				RootNodes:  make([]input.NodeSettings, 0),
-			},
-			ConnectFailBehavior:  "notanoption",
-			SubscriptionInterval: config.Duration(100 * time.Millisecond),
-		},
-		Log: testutil.Logger{},
+		Endpoint:             "opc.tcp://notarealserver:4840",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		ConnectTimeout:       config.Duration(5 * time.Second),
+		RequestTimeout:       config.Duration(10 * time.Second),
+		MetricName:           "opcua",
+		Timestamp:            input.TimestampSourceTelegraf,
+		RootNodes:            make([]input.NodeSettings, 0),
+		ConnectFailBehavior:  "notanoption",
+		SubscriptionInterval: config.Duration(100 * time.Millisecond),
+		Log:                  testutil.Logger{},
 	}
 	err := plugin.Init()
 	require.ErrorContains(t, err, "unknown setting \"notanoption\" for 'connect_fail_behavior'")
+}
+
+func TestInitPluginWithNegativeBatchSize(t *testing.T) {
+	plugin := OpcUaListener{
+		Endpoint:             "opc.tcp://notarealserver:4840",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		ConnectTimeout:       config.Duration(5 * time.Second),
+		RequestTimeout:       config.Duration(10 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{MonitoredItemsBatchSize: -1},
+		MetricName:           "opcua",
+		Timestamp:            input.TimestampSourceTelegraf,
+		RootNodes:            make([]input.NodeSettings, 0),
+		SubscriptionInterval: config.Duration(100 * time.Millisecond),
+		Log:                  testutil.Logger{},
+	}
+	require.ErrorContains(t, plugin.Init(), "'monitored_items_batch_size' must not be negative")
 }
 
 func TestStartPlugin(t *testing.T) {
@@ -69,22 +82,16 @@ func TestStartPlugin(t *testing.T) {
 	acc := &testutil.Accumulator{}
 
 	plugin := OpcUaListener{
-		subscribeClientConfig: subscribeClientConfig{
-			InputClientConfig: input.InputClientConfig{
-				OpcUAClientConfig: opcua.OpcUAClientConfig{
-					Endpoint:       "opc.tcp://notarealserver:4840",
-					SecurityPolicy: "None",
-					SecurityMode:   "None",
-					ConnectTimeout: config.Duration(5 * time.Second),
-					RequestTimeout: config.Duration(10 * time.Second),
-				},
-				MetricName: "opcua",
-				Timestamp:  input.TimestampSourceTelegraf,
-				RootNodes:  make([]input.NodeSettings, 0),
-			},
-			SubscriptionInterval: config.Duration(100 * time.Millisecond),
-		},
-		Log: testutil.Logger{},
+		Endpoint:             "opc.tcp://notarealserver:4840",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		ConnectTimeout:       config.Duration(5 * time.Second),
+		RequestTimeout:       config.Duration(10 * time.Second),
+		MetricName:           "opcua",
+		Timestamp:            input.TimestampSourceTelegraf,
+		RootNodes:            make([]input.NodeSettings, 0),
+		SubscriptionInterval: config.Duration(100 * time.Millisecond),
+		Log:                  testutil.Logger{},
 	}
 	testopctags := []opcTags{
 		{"ProductName", "0", "i", "2261", "open62541 OPC UA Server"},
@@ -106,7 +113,7 @@ func TestStartPlugin(t *testing.T) {
 		Image:        "open62541/open62541",
 		ExposedPorts: []string{servicePort},
 		WaitingFor: wait.ForAll(
-			wait.ForListeningPort(nat.Port(servicePort)),
+			wait.ForListeningPort(servicePort),
 			wait.ForLog("TCP network layer listening on opc.tcp://"),
 		),
 	}
@@ -136,7 +143,7 @@ func TestSubscribeClientIntegration(t *testing.T) {
 		Image:        "open62541/open62541",
 		ExposedPorts: []string{servicePort},
 		WaitingFor: wait.ForAll(
-			wait.ForListeningPort(nat.Port(servicePort)),
+			wait.ForListeningPort(servicePort),
 			wait.ForLog("TCP network layer listening on opc.tcp://"),
 		),
 	}
@@ -160,20 +167,16 @@ func TestSubscribeClientIntegration(t *testing.T) {
 	}
 
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       fmt.Sprintf("opc.tcp://%s:%s", container.Address, container.Ports[servicePort]),
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName: "testing",
-			RootNodes:  make([]input.NodeSettings, 0),
-			Groups:     make([]input.NodeGroupSettings, 0),
-		},
+		Endpoint:             fmt.Sprintf("opc.tcp://%s:%s", container.Address, container.Ports[servicePort]),
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		RootNodes:            make([]input.NodeSettings, 0),
+		Groups:               make([]input.NodeGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	for _, tags := range testopctags {
@@ -230,12 +233,12 @@ func TestSubscribeClientIntegration(t *testing.T) {
 			}
 
 		case <-ctx.Done():
-			msg := ""
+			var sb strings.Builder
 			for _, tag := range tagsRemaining {
-				msg += tag + ", "
+				sb.WriteString(tag)
+				sb.WriteString(", ")
 			}
-
-			t.Errorf("Tags %s are remaining without a received value", msg)
+			t.Errorf("Tags %s are remaining without a received value", sb.String())
 			return
 		}
 	}
@@ -250,7 +253,7 @@ func TestSubscribeClientIntegrationAdditionalFields(t *testing.T) {
 		Image:        "open62541/open62541",
 		ExposedPorts: []string{servicePort},
 		WaitingFor: wait.ForAll(
-			wait.ForListeningPort(nat.Port(servicePort)),
+			wait.ForListeningPort(servicePort),
 			wait.ForLog("TCP network layer listening on opc.tcp://"),
 		),
 	}
@@ -287,7 +290,7 @@ func TestSubscribeClientIntegrationAdditionalFields(t *testing.T) {
 		tags := map[string]string{
 			"id": fmt.Sprintf("ns=%s;%s=%s", x.namespace, x.identifierType, x.identifier),
 		}
-		fields := map[string]interface{}{
+		fields := map[string]any{
 			x.name:     x.want,
 			"Quality":  testopcquality[i],
 			"DataType": testopctypes[i],
@@ -303,21 +306,17 @@ func TestSubscribeClientIntegrationAdditionalFields(t *testing.T) {
 	}
 
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       fmt.Sprintf("opc.tcp://%s:%s", container.Address, container.Ports[servicePort]),
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-				OptionalFields: []string{"DataType"},
-			},
-			MetricName: "testing",
-			RootNodes:  make([]input.NodeSettings, 0),
-			Groups:     make([]input.NodeGroupSettings, 0),
-		},
+		Endpoint:             fmt.Sprintf("opc.tcp://%s:%s", container.Address, container.Ports[servicePort]),
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		OptionalFields:       []string{"DataType"},
+		MetricName:           "testing",
+		RootNodes:            make([]input.NodeSettings, 0),
+		Groups:               make([]input.NodeGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	for _, tags := range testopctags {
@@ -371,13 +370,139 @@ func TestSubscribeClientIntegrationAdditionalFields(t *testing.T) {
 			}
 
 		case <-ctx.Done():
-			msg := ""
+			var sb strings.Builder
 			for _, tag := range tagsRemaining {
-				msg += tag + ", "
+				sb.WriteString(tag)
+				sb.WriteString(", ")
 			}
-
-			t.Errorf("Tags %s are remaining without a received value", msg)
+			t.Errorf("Tags %s are remaining without a received value", sb.String())
 			return
+		}
+	}
+}
+
+func TestSkipFailedMonitoredItemsIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	container := testutil.Container{
+		Image:        "open62541/open62541",
+		ExposedPorts: []string{servicePort},
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort(servicePort),
+			wait.ForLog("TCP network layer listening on opc.tcp://"),
+		),
+	}
+	require.NoError(t, container.Start(), "failed to start container")
+	defer container.Terminate()
+
+	subscribeConfig := subscribeClientConfig{
+		Endpoint:       fmt.Sprintf("opc.tcp://%s:%s", container.Address, container.Ports[servicePort]),
+		SecurityPolicy: "None",
+		SecurityMode:   "None",
+		AuthMethod:     "Anonymous",
+		ConnectTimeout: config.Duration(10 * time.Second),
+		RequestTimeout: config.Duration(1 * time.Second),
+		MetricName:     "testing",
+		RootNodes: []input.NodeSettings{
+			{FieldName: "ProductName", Namespace: "0", IdentifierType: "i", Identifier: "2261"},
+			{FieldName: "NonExistent", Namespace: "99", IdentifierType: "i", Identifier: "99999"},
+		},
+	}
+
+	o, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return o.SetupOptions() == nil
+	}, 5*time.Second, 10*time.Millisecond)
+
+	require.NoError(t, o.connect())
+
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	res, err := o.startMonitoring(ctx)
+	require.NoError(t, err)
+
+	select {
+	case m := <-res:
+		require.Contains(t, m.Fields(), "ProductName")
+	case <-ctx.Done():
+		t.Fatal("Timed out waiting for metric from valid node")
+	}
+}
+
+func TestMonitoredItemsBatchSizeIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	container := testutil.Container{
+		Image:        "open62541/open62541",
+		ExposedPorts: []string{servicePort},
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort(servicePort),
+			wait.ForLog("TCP network layer listening on opc.tcp://"),
+		),
+	}
+	require.NoError(t, container.Start(), "failed to start container")
+	defer container.Terminate()
+
+	// Register more monitored items than the batch size so the registration is
+	// split across multiple CreateMonitoredItems requests. All items must still
+	// be monitored and their results mapped back to the correct field. Each item
+	// points at the continuously updating server CurrentTime node (i=2258) so
+	// every monitored item reliably emits an initial notification.
+	nodes := []input.NodeSettings{
+		{FieldName: "time1", Namespace: "0", IdentifierType: "i", Identifier: "2258"},
+		{FieldName: "time2", Namespace: "0", IdentifierType: "i", Identifier: "2258"},
+		{FieldName: "time3", Namespace: "0", IdentifierType: "i", Identifier: "2258"},
+		{FieldName: "time4", Namespace: "0", IdentifierType: "i", Identifier: "2258"},
+	}
+
+	subscribeConfig := subscribeClientConfig{
+		Endpoint:       fmt.Sprintf("opc.tcp://%s:%s", container.Address, container.Ports[servicePort]),
+		SecurityPolicy: "None",
+		SecurityMode:   "None",
+		AuthMethod:     "Anonymous",
+		ConnectTimeout: config.Duration(10 * time.Second),
+		RequestTimeout: config.Duration(1 * time.Second),
+		Workarounds:    opcua.OpcUAWorkarounds{MonitoredItemsBatchSize: 2},
+		MetricName:     "testing",
+		RootNodes:      nodes,
+	}
+
+	o, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return o.SetupOptions() == nil
+	}, 5*time.Second, 10*time.Millisecond)
+
+	require.NoError(t, o.connect())
+
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	res, err := o.startMonitoring(ctx)
+	require.NoError(t, err)
+
+	expected := make(map[string]bool, len(nodes))
+	for _, node := range nodes {
+		expected[node.FieldName] = true
+	}
+
+	received := make(map[string]bool, len(nodes))
+	for len(received) < len(expected) {
+		select {
+		case m := <-res:
+			for field := range m.Fields() {
+				if expected[field] {
+					received[field] = true
+				}
+			}
+		case <-ctx.Done():
+			t.Fatalf("Timed out waiting for metrics, only received %v", received)
 		}
 	}
 }
@@ -429,6 +554,7 @@ default_tags = {tag1="val1", tag2="val2"}
 
 [inputs.opcua_listener.workarounds]
 additional_valid_status_codes = ["0xC0"]
+monitored_items_batch_size = 500
 `
 
 	c := config.NewConfig()
@@ -491,7 +617,7 @@ additional_valid_status_codes = ["0xC0"]
 			}},
 		},
 	}, o.subscribeClientConfig.Groups)
-	require.Equal(t, opcua.OpcUAWorkarounds{AdditionalValidStatusCodes: []string{"0xC0"}}, o.subscribeClientConfig.Workarounds)
+	require.Equal(t, opcua.OpcUAWorkarounds{AdditionalValidStatusCodes: []string{"0xC0"}, MonitoredItemsBatchSize: 500}, o.subscribeClientConfig.Workarounds)
 	require.Equal(t, []string{"DataType"}, o.subscribeClientConfig.OptionalFields)
 }
 
@@ -560,22 +686,65 @@ deadband_value = 100.0
 	}, o.subscribeClientConfig.Groups)
 }
 
+func TestSubscribeClientBrowseDiscoveryIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	container := testutil.Container{
+		Image:        "open62541/open62541",
+		ExposedPorts: []string{servicePort},
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort(servicePort),
+			wait.ForLog("TCP network layer listening on opc.tcp://"),
+		),
+	}
+	require.NoError(t, container.Start(), "failed to start container")
+	defer container.Terminate()
+
+	subscribeConfig := subscribeClientConfig{
+		Endpoint:       fmt.Sprintf("opc.tcp://%s:%s", container.Address, container.Ports[servicePort]),
+		SecurityPolicy: "None",
+		SecurityMode:   "None",
+		AuthMethod:     "Anonymous",
+		ConnectTimeout: config.Duration(10 * time.Second),
+		RequestTimeout: config.Duration(1 * time.Second),
+		MetricName:     "browse_listener",
+		Browse: input.BrowseConfig{
+			Depth: 5,
+			Paths: []input.BrowsePathSettings{
+				{Pattern: "Server/**", MetricName: "server_vars"},
+			},
+		},
+		SubscriptionInterval: config.Duration(100 * time.Millisecond),
+	}
+
+	client, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
+	require.NoError(t, err)
+
+	require.NoError(t, client.connect())
+	require.NotEmpty(t, client.NodeMetricMapping, "browse should discover at least one variable under Server/**")
+
+	// Reconnect re-runs discovery against an unchanged server; mapping size
+	// must stay bounded rather than grow with each reconnect.
+	mappingSize := len(client.NodeMetricMapping)
+	require.NoError(t, client.Disconnect(t.Context()))
+	require.NoError(t, client.connect())
+	require.Len(t, client.NodeMetricMapping, mappingSize, "rediscovery must not grow the mapping")
+}
+
 func TestSubscribeClientConfigInvalidTrigger(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://localhost:4840",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName: "testing",
-			RootNodes:  make([]input.NodeSettings, 0),
-			Groups:     make([]input.NodeGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://localhost:4840",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		RootNodes:            make([]input.NodeSettings, 0),
+		Groups:               make([]input.NodeGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.RootNodes = append(subscribeConfig.RootNodes, input.NodeSettings{
@@ -591,25 +760,21 @@ func TestSubscribeClientConfigInvalidTrigger(t *testing.T) {
 	})
 
 	_, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
-	require.ErrorContains(t, err, "trigger 'not_valid' not supported, node 'ns=3;i=1'")
+	require.ErrorContains(t, err, "node 'ns=3;i=1': trigger 'not_valid' not supported")
 }
 
 func TestSubscribeClientConfigMissingTrigger(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://localhost:4840",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName: "testing",
-			RootNodes:  make([]input.NodeSettings, 0),
-			Groups:     make([]input.NodeGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://localhost:4840",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		RootNodes:            make([]input.NodeSettings, 0),
+		Groups:               make([]input.NodeGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.RootNodes = append(subscribeConfig.RootNodes, input.NodeSettings{
@@ -625,25 +790,21 @@ func TestSubscribeClientConfigMissingTrigger(t *testing.T) {
 	})
 
 	_, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
-	require.ErrorContains(t, err, "trigger '' not supported, node 'ns=3;i=1'")
+	require.ErrorContains(t, err, "node 'ns=3;i=1': trigger '' not supported")
 }
 
 func TestSubscribeClientConfigInvalidDeadbandType(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://localhost:4840",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName: "testing",
-			RootNodes:  make([]input.NodeSettings, 0),
-			Groups:     make([]input.NodeGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://localhost:4840",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		RootNodes:            make([]input.NodeSettings, 0),
+		Groups:               make([]input.NodeGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.RootNodes = append(subscribeConfig.RootNodes, input.NodeSettings{
@@ -660,25 +821,21 @@ func TestSubscribeClientConfigInvalidDeadbandType(t *testing.T) {
 	})
 
 	_, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
-	require.ErrorContains(t, err, "deadband_type 'not_valid' not supported, node 'ns=3;i=1'")
+	require.ErrorContains(t, err, "node 'ns=3;i=1': deadband_type 'not_valid' not supported")
 }
 
 func TestSubscribeClientConfigMissingDeadbandType(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://localhost:4840",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName: "testing",
-			RootNodes:  make([]input.NodeSettings, 0),
-			Groups:     make([]input.NodeGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://localhost:4840",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		RootNodes:            make([]input.NodeSettings, 0),
+		Groups:               make([]input.NodeGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.RootNodes = append(subscribeConfig.RootNodes, input.NodeSettings{
@@ -694,25 +851,21 @@ func TestSubscribeClientConfigMissingDeadbandType(t *testing.T) {
 	})
 
 	_, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
-	require.ErrorContains(t, err, "deadband_type '' not supported, node 'ns=3;i=1'")
+	require.ErrorContains(t, err, "node 'ns=3;i=1': deadband_type '' not supported")
 }
 
 func TestSubscribeClientConfigInvalidDeadbandValue(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://localhost:4840",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName: "testing",
-			RootNodes:  make([]input.NodeSettings, 0),
-			Groups:     make([]input.NodeGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://localhost:4840",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		RootNodes:            make([]input.NodeSettings, 0),
+		Groups:               make([]input.NodeGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	deadbandValue := -1.0
@@ -731,25 +884,21 @@ func TestSubscribeClientConfigInvalidDeadbandValue(t *testing.T) {
 	})
 
 	_, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
-	require.ErrorContains(t, err, "negative deadband_value not supported, node 'ns=3;i=1'")
+	require.ErrorContains(t, err, "node 'ns=3;i=1': negative deadband_value not supported")
 }
 
 func TestSubscribeClientConfigMissingDeadbandValue(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://localhost:4840",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName: "testing",
-			RootNodes:  make([]input.NodeSettings, 0),
-			Groups:     make([]input.NodeGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://localhost:4840",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		RootNodes:            make([]input.NodeSettings, 0),
+		Groups:               make([]input.NodeGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.RootNodes = append(subscribeConfig.RootNodes, input.NodeSettings{
@@ -766,25 +915,21 @@ func TestSubscribeClientConfigMissingDeadbandValue(t *testing.T) {
 	})
 
 	_, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
-	require.ErrorContains(t, err, "deadband_value was not set, node 'ns=3;i=1'")
+	require.ErrorContains(t, err, "node 'ns=3;i=1': deadband_value was not set")
 }
 
 func TestSubscribeClientConfigValidMonitoringParams(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://localhost:4840",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName: "testing",
-			RootNodes:  make([]input.NodeSettings, 0),
-			Groups:     make([]input.NodeGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://localhost:4840",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		RootNodes:            make([]input.NodeSettings, 0),
+		Groups:               make([]input.NodeGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 
@@ -808,8 +953,14 @@ func TestSubscribeClientConfigValidMonitoringParams(t *testing.T) {
 		},
 	})
 
-	subClient, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
+	_, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
 	require.NoError(t, err)
+
+	// Verify assignConfigValuesToRequest correctly translates monitoring params
+	nodeID, err := ua.ParseNodeID("ns=3;i=1")
+	require.NoError(t, err)
+	req := gopcua.NewMonitoredItemCreateRequestWithDefaults(nodeID, ua.AttributeIDValue, 0)
+	require.NoError(t, assignConfigValuesToRequest(req, &subscribeConfig.RootNodes[0].MonitoringParams))
 	require.Equal(t, &ua.MonitoringParameters{
 		SamplingInterval: 50,
 		QueueSize:        queueSize,
@@ -821,26 +972,53 @@ func TestSubscribeClientConfigValidMonitoringParams(t *testing.T) {
 				DeadbandValue: deadbandValue,
 			},
 		),
-	}, subClient.monitoredItemsReqs[0].RequestedParameters)
+	}, req.RequestedParameters)
+}
+
+func TestSubscribeClientConfigValidMonitoringParamsNoDeadband(t *testing.T) {
+	var queueSize uint32 = 10
+	discardOldest := true
+	monParams := input.MonitoringParameters{
+		SamplingInterval: 50000000,
+		QueueSize:        &queueSize,
+		DiscardOldest:    &discardOldest,
+		DataChangeFilter: &input.DataChangeFilter{
+			Trigger:      "Status",
+			DeadbandType: "None",
+		},
+	}
+
+	nodeID, err := ua.ParseNodeID("ns=3;i=1")
+	require.NoError(t, err)
+	req := gopcua.NewMonitoredItemCreateRequestWithDefaults(nodeID, ua.AttributeIDValue, 0)
+	require.NoError(t, assignConfigValuesToRequest(req, &monParams))
+	require.Equal(t, &ua.MonitoringParameters{
+		SamplingInterval: 50,
+		QueueSize:        queueSize,
+		DiscardOldest:    discardOldest,
+		Filter: ua.NewExtensionObject(
+			&ua.DataChangeFilter{
+				Trigger:       ua.DataChangeTriggerStatus,
+				DeadbandType:  uint32(ua.DeadbandTypeNone),
+				DeadbandValue: 0,
+			},
+		),
+	}, req.RequestedParameters)
 }
 
 func TestSubscribeClientConfigValidMonitoringAndEventParams(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://localhost:4840",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName:  "testing",
-			RootNodes:   make([]input.NodeSettings, 0),
-			Groups:      make([]input.NodeGroupSettings, 0),
-			EventGroups: make([]input.EventGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://localhost:4840",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		RootNodes:            make([]input.NodeSettings, 0),
+		Groups:               make([]input.NodeGroupSettings, 0),
+		EventGroups:          make([]input.EventGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 
@@ -888,8 +1066,14 @@ func TestSubscribeClientConfigValidMonitoringAndEventParams(t *testing.T) {
 		Fields:      []string{"PressureValue"},
 	})
 
-	subClient, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
+	_, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
 	require.NoError(t, err)
+
+	// Verify assignConfigValuesToRequest correctly translates monitoring params
+	nodeID, err := ua.ParseNodeID("ns=3;i=1")
+	require.NoError(t, err)
+	req := gopcua.NewMonitoredItemCreateRequestWithDefaults(nodeID, ua.AttributeIDValue, 0)
+	require.NoError(t, assignConfigValuesToRequest(req, &subscribeConfig.RootNodes[0].MonitoringParams))
 	require.Equal(t, &ua.MonitoringParameters{
 		SamplingInterval: 50,
 		QueueSize:        queueSize,
@@ -901,24 +1085,20 @@ func TestSubscribeClientConfigValidMonitoringAndEventParams(t *testing.T) {
 				DeadbandValue: deadbandValue,
 			},
 		),
-	}, subClient.monitoredItemsReqs[0].RequestedParameters)
+	}, req.RequestedParameters)
 }
 
 func TestSubscribeClientConfigValidEventStreamingParams(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName:  "testing",
-			EventGroups: make([]input.EventGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		EventGroups:          make([]input.EventGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.EventGroups = append(subscribeConfig.EventGroups, input.EventGroupSettings{
@@ -952,19 +1132,15 @@ func TestSubscribeClientConfigValidEventStreamingParams(t *testing.T) {
 
 func TestSubscribeClientConfigEventInputMissingSamplingInterval(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName:  "testing",
-			EventGroups: make([]input.EventGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		EventGroups:          make([]input.EventGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.EventGroups = append(subscribeConfig.EventGroups, input.EventGroupSettings{
@@ -992,19 +1168,15 @@ func TestSubscribeClientConfigEventInputMissingSamplingInterval(t *testing.T) {
 
 func TestSubscribeClientConfigEventInputMissingEventType(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName:  "testing",
-			EventGroups: make([]input.EventGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		EventGroups:          make([]input.EventGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.EventGroups = append(subscribeConfig.EventGroups, input.EventGroupSettings{
@@ -1028,19 +1200,15 @@ func TestSubscribeClientConfigEventInputMissingEventType(t *testing.T) {
 
 func TestSubscribeClientConfigEventMissingEventTypeNamespace(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName:  "testing",
-			EventGroups: make([]input.EventGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		EventGroups:          make([]input.EventGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.EventGroups = append(subscribeConfig.EventGroups, input.EventGroupSettings{
@@ -1063,24 +1231,20 @@ func TestSubscribeClientConfigEventMissingEventTypeNamespace(t *testing.T) {
 	})
 
 	_, err := subscribeConfig.createSubscribeClient(testutil.Logger{})
-	require.ErrorContains(t, err, "namespace must be set")
+	require.ErrorContains(t, err, "must specify either 'namespace' or 'namespace_uri'")
 }
 
 func TestSubscribeClientConfigEventMissingEventTypeIdentifierType(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName:  "testing",
-			EventGroups: make([]input.EventGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		EventGroups:          make([]input.EventGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.EventGroups = append(subscribeConfig.EventGroups, input.EventGroupSettings{
@@ -1108,19 +1272,15 @@ func TestSubscribeClientConfigEventMissingEventTypeIdentifierType(t *testing.T) 
 
 func TestSubscribeClientConfigEventMissingEventTypeIdentifier(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName:  "testing",
-			EventGroups: make([]input.EventGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		EventGroups:          make([]input.EventGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.EventGroups = append(subscribeConfig.EventGroups, input.EventGroupSettings{
@@ -1148,19 +1308,15 @@ func TestSubscribeClientConfigEventMissingEventTypeIdentifier(t *testing.T) {
 
 func TestSubscribeClientConfigEventInputMissingNodeIDs(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName:  "testing",
-			EventGroups: make([]input.EventGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		EventGroups:          make([]input.EventGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.EventGroups = append(subscribeConfig.EventGroups, input.EventGroupSettings{
@@ -1181,19 +1337,15 @@ func TestSubscribeClientConfigEventInputMissingNodeIDs(t *testing.T) {
 
 func TestSubscribeClientConfigEventInputMissingFields(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName:  "testing",
-			EventGroups: make([]input.EventGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		EventGroups:          make([]input.EventGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.EventGroups = append(subscribeConfig.EventGroups, input.EventGroupSettings{
@@ -1221,19 +1373,15 @@ func TestSubscribeClientConfigEventInputMissingFields(t *testing.T) {
 
 func TestSubscribeClientConfigEventInputInvalidFields(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName:  "testing",
-			EventGroups: make([]input.EventGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		EventGroups:          make([]input.EventGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.EventGroups = append(subscribeConfig.EventGroups, input.EventGroupSettings{
@@ -1262,19 +1410,15 @@ func TestSubscribeClientConfigEventInputInvalidFields(t *testing.T) {
 
 func TestSubscribeClientConfigValidEventStreamingDefaultNodeParams(t *testing.T) {
 	subscribeConfig := subscribeClientConfig{
-		InputClientConfig: input.InputClientConfig{
-			OpcUAClientConfig: opcua.OpcUAClientConfig{
-				Endpoint:       "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
-				SecurityPolicy: "None",
-				SecurityMode:   "None",
-				AuthMethod:     "Anonymous",
-				ConnectTimeout: config.Duration(10 * time.Second),
-				RequestTimeout: config.Duration(1 * time.Second),
-				Workarounds:    opcua.OpcUAWorkarounds{},
-			},
-			MetricName:  "testing",
-			EventGroups: make([]input.EventGroupSettings, 0),
-		},
+		Endpoint:             "opc.tcp://opcua.demo-this.com:62544/Quickstarts/AlarmConditionServer",
+		SecurityPolicy:       "None",
+		SecurityMode:         "None",
+		AuthMethod:           "Anonymous",
+		ConnectTimeout:       config.Duration(10 * time.Second),
+		RequestTimeout:       config.Duration(1 * time.Second),
+		Workarounds:          opcua.OpcUAWorkarounds{},
+		MetricName:           "testing",
+		EventGroups:          make([]input.EventGroupSettings, 0),
 		SubscriptionInterval: 0,
 	}
 	subscribeConfig.EventGroups = append(subscribeConfig.EventGroups, input.EventGroupSettings{
@@ -1301,4 +1445,88 @@ func TestSubscribeClientConfigValidEventStreamingDefaultNodeParams(t *testing.T)
 	o := subscribeConfig.InputClientConfig.EventGroups[0].NodeIDSettings[0]
 	require.Equal(t, "i", o.IdentifierType)
 	require.Equal(t, "3", o.Namespace)
+}
+
+func TestProcessNotificationsSurvivesNilValueAndError(t *testing.T) {
+	// This test verifies that processReceivedNotifications continues processing
+	// after receiving nil values and errors on the notification channel, which
+	// occur during gopcua's automatic session reconnection cycle.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	nodeID, err := ua.ParseNodeID("ns=0;i=2258")
+	require.NoError(t, err)
+
+	nodeSettings := input.NodeSettings{FieldName: "TestValue"}
+	nmm, err := input.NewNodeMetricMapping("opcua", nodeSettings, nil)
+	require.NoError(t, err)
+
+	opcuaConfig := &opcua.OpcUAClientConfig{
+		Endpoint:       "opc.tcp://localhost:4840",
+		SecurityPolicy: "None",
+		SecurityMode:   "None",
+		AuthMethod:     "Anonymous",
+		ConnectTimeout: config.Duration(5 * time.Second),
+		RequestTimeout: config.Duration(10 * time.Second),
+	}
+	opcuaClient, err := opcuaConfig.CreateClient(testutil.Logger{})
+	require.NoError(t, err)
+
+	client := &subscribeClient{
+		OpcUAInputClient: &input.OpcUAInputClient{
+			OpcUAClient: opcuaClient,
+			Log:         testutil.Logger{},
+			Config: input.InputClientConfig{
+				MetricName: "opcua",
+				Timestamp:  input.TimestampSourceTelegraf,
+			},
+			NodeIDs:           []*ua.NodeID{nodeID},
+			NodeMetricMapping: []input.NodeMetricMapping{*nmm},
+			LastReceivedData: []input.NodeValue{
+				{TagName: "TestValue"},
+			},
+		},
+		dataNotifications: make(chan *gopcua.PublishNotificationData, 10),
+		metrics:           make(chan telegraf.Metric, 10),
+		ctx:               ctx,
+		cancel:            cancel,
+	}
+
+	go client.processReceivedNotifications()
+
+	// Simulate a reconnection error (gopcua sends errors through the channel during recovery)
+	client.dataNotifications <- &gopcua.PublishNotificationData{
+		Error: errors.New("session closed"),
+	}
+
+	// Simulate a nil value notification (can occur as a transient state during reconnection)
+	client.dataNotifications <- &gopcua.PublishNotificationData{}
+
+	// Send a valid data change notification after the error and nil value
+	client.dataNotifications <- &gopcua.PublishNotificationData{
+		Value: &ua.DataChangeNotification{
+			MonitoredItems: []*ua.MonitoredItemNotification{
+				{
+					ClientHandle: 0,
+					Value: &ua.DataValue{
+						Value:           ua.MustVariant(float64(42.0)),
+						Status:          ua.StatusOK,
+						ServerTimestamp: time.Now(),
+						SourceTimestamp: time.Now(),
+					},
+				},
+			},
+		},
+	}
+
+	// The goroutine must survive the error and nil value, then produce a metric
+	require.Eventually(t, func() bool {
+		return len(client.metrics) >= 1
+	}, time.Second, 10*time.Millisecond)
+
+	m := <-client.metrics
+	require.Equal(t, "opcua", m.Name())
+	v, ok := m.GetField("TestValue")
+	require.True(t, ok)
+	require.InDelta(t, 42.0, v, 0.001)
 }

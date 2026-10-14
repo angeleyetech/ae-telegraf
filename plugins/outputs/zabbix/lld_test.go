@@ -12,12 +12,13 @@ import (
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
 type (
 	// Operations is an interface to simulate aggregator operations
-	Operations interface{}
+	Operations any
 	// OperationAdd is an array of metrics to add to the aggregator
 	OperationAdd []telegraf.Metric
 	// OperationPush simulate a push call to the aggregator
@@ -32,268 +33,268 @@ func TestAddAndPush(t *testing.T) {
 	tests := map[string][]Operations{
 		"metric without extra tags does not generate LLD metric": {
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now()),
 			},
 			OperationPush{},
 		},
 		"simple Add, Push and check generated LLD metric": {
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "bar"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now()),
 			},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
 		},
 		"same metric with different tag values": {
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "bar1"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now()),
 			},
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "bar2"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now()),
 			},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar1"},{"{#FOO}":"bar2"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar1"},{"{#FOO}":"bar2"}]}`},
 					time.Now(),
 				),
 			},
 		},
 		"add two metrics, Push and check generated LLD metric": {
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"nameA",
 					map[string]string{"host": "hostA", "foo": "bar"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now()),
-				testutil.MustMetric(
+				metric.New(
 					"nameB",
 					map[string]string{"host": "hostA", "foo": "bar"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now()),
 			},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"nameA.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"nameA.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"nameB.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"nameB.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
 		},
 		"add two similar metrics, one with one more extra tag": {
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"nameA",
 					map[string]string{"host": "hostA", "foo1": "bar"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now()),
-				testutil.MustMetric(
+				metric.New(
 					"nameA",
 					map[string]string{"host": "hostA", "foo1": "bar", "foo2": "baz"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now()),
 			},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"nameA.foo1": `{"data":[{"{#FOO1}":"bar"}]}`},
+					map[string]any{"nameA.foo1": `{"data":[{"{#FOO1}":"bar"}]}`},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"nameA.foo1.foo2": `{"data":[{"{#FOO1}":"bar","{#FOO2}":"baz"}]}`},
+					map[string]any{"nameA.foo1.foo2": `{"data":[{"{#FOO1}":"bar","{#FOO2}":"baz"}]}`},
 					time.Now(),
 				),
 			},
 		},
 		"same metric several times generate only one LLD": {
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "bar"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "bar"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "bar"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
 		},
 		"same metric several times, with different tag ordering, generate only one LLD": {
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "bar", "baz": "qux"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "baz": "qux", "foo": "bar"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"baz": "qux", "foo": "bar", "host": "hostA"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.baz.foo": `{"data":[{"{#BAZ}":"qux","{#FOO}":"bar"}]}`},
+					map[string]any{"name.baz.foo": `{"data":[{"{#BAZ}":"qux","{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
 		},
 		"after sending correctly an LLD, same tag values does not generate the same LLD": {
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "bar"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "bar"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationPush{},
 		},
 		"after lld_clear_interval, already seen LLDs could be resend": {
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "bar"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "bar"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationPush{},
 			OperationCrossClearIntervalTime{}, // The clear of the previous LLD seen is done in the next push
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "bar"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationPush{},
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "bar"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
 		},
 		"clear interval does not interfere with the send of empty LLDs": {
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "bar"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "bar"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationPush{},
@@ -301,209 +302,209 @@ func TestAddAndPush(t *testing.T) {
 			OperationCrossClearIntervalTime{}, // The clear of the previous LLD seen is done in the next push
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[]}`},
+					map[string]any{"name.foo": `{"data":[]}`},
 					time.Now(),
 				),
 			},
 		},
 		"one metric changes the value of the tag, it should send the new value and not send and empty lld": {
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "bar1"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar1"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar1"}]}`},
 					time.Now(),
 				),
 			},
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "bar2"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar2"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar2"}]}`},
 					time.Now(),
 				),
 			},
 		},
 		"if one input stop sending metrics, an empty LLD is sent": {
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "bar"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
 			OperationPush{},
-			OperationCheck{testutil.MustMetric(
+			OperationCheck{metric.New(
 				lldName,
 				map[string]string{"host": "hostA"},
-				map[string]interface{}{"name.foo": `{"data":[]}`},
+				map[string]any{"name.foo": `{"data":[]}`},
 				time.Now(),
 			)},
 		},
 		"from two inputs, one stop sending metrics, an empty LLD is sent just for that stopped input": {
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "bar"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostB", "foo": "bar"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostB"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostB", "foo": "bar"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[]}`},
+					map[string]any{"name.foo": `{"data":[]}`},
 					time.Now(),
 				),
 			},
 		},
 		"different hosts sending the same metric should generate different LLDs": {
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "bar"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostB", "foo": "bar"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostB"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
 		},
 		"same measurement with different tags should generate different LLDs": {
-			OperationAdd{testutil.MustMetric(
+			OperationAdd{metric.New(
 				"name",
 				map[string]string{"host": "hostA", "foo": "a"},
-				map[string]interface{}{"value": 1},
+				map[string]any{"value": 1},
 				time.Now(),
 			)},
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "a", "bar": "b"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.foo": `{"data":[{"{#FOO}":"a"}]}`},
+					map[string]any{"name.foo": `{"data":[{"{#FOO}":"a"}]}`},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"name.bar.foo": `{"data":[{"{#BAR}":"b","{#FOO}":"a"}]}`},
+					map[string]any{"name.bar.foo": `{"data":[{"{#BAR}":"b","{#FOO}":"a"}]}`},
 					time.Now(),
 				),
 			},
 		},
 		"a set with a new combination of tag values already seen should generate a new lld": {
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "a", "bar": "b"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "x", "bar": "y"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "a", "bar": "y"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{
+					map[string]any{
 						"name.bar.foo": `{"data":[{"{#BAR}":"b","{#FOO}":"a"},{"{#BAR}":"y","{#FOO}":"a"},{"{#BAR}":"y","{#FOO}":"x"}]}`,
 					},
 					time.Now(),
@@ -512,27 +513,27 @@ func TestAddAndPush(t *testing.T) {
 		},
 		"same host and metric with and without extra tag": {
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "a"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{
+					map[string]any{
 						"name.foo": `{"data":[{"{#FOO}":"a"}]}`,
 					},
 					time.Now(),
@@ -541,47 +542,47 @@ func TestAddAndPush(t *testing.T) {
 			OperationCrossClearIntervalTime{},
 			OperationPush{},
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA", "foo": "a"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationPush{},
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{
+					map[string]any{
 						"name.foo": `{"data":[{"{#FOO}":"a"}]}`,
 					},
 					time.Now(),
 				),
 			},
 			OperationAdd{
-				testutil.MustMetric(
+				metric.New(
 					"name",
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"value": 1},
+					map[string]any{"value": 1},
 					time.Now(),
 				),
 			},
 			OperationPush{},
 			// Clean name.foo because it has not been since the last push
 			OperationCheck{
-				testutil.MustMetric(
+				metric.New(
 					lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{
+					map[string]any{
 						"name.foo": `{"data":[]}`,
 					},
 					time.Now(),
@@ -646,9 +647,9 @@ func TestPush(t *testing.T) {
 			},
 			PreviousReceivedData: map[uint64]lldInfo{},
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(lldName,
+				metric.New(lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"disk.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"disk.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
@@ -670,9 +671,9 @@ func TestPush(t *testing.T) {
 			},
 			PreviousReceivedData: map[uint64]lldInfo{},
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(lldName,
+				metric.New(lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"disk.foo": `{"data":[{"{#FOO}":"bar1"},{"{#FOO}":"bar2"}]}`},
+					map[string]any{"disk.foo": `{"data":[{"{#FOO}":"bar1"},{"{#FOO}":"bar2"}]}`},
 					time.Now(),
 				),
 			},
@@ -693,9 +694,9 @@ func TestPush(t *testing.T) {
 			},
 			PreviousReceivedData: map[uint64]lldInfo{},
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(lldName,
+				metric.New(lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"disk.fooA.fooB.fooC": `{"data":[{"{#FOOA}":"bar1","{#FOOB}":"bar2","{#FOOC}":"bar3"}]}`},
+					map[string]any{"disk.fooA.fooB.fooC": `{"data":[{"{#FOOA}":"bar1","{#FOOB}":"bar2","{#FOOC}":"bar3"}]}`},
 					time.Now(),
 				),
 			},
@@ -732,19 +733,19 @@ func TestPush(t *testing.T) {
 			},
 			PreviousReceivedData: map[uint64]lldInfo{},
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(lldName,
+				metric.New(lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"proc.pid": `{"data":[{"{#PID}":"1234"}]}`},
+					map[string]any{"proc.pid": `{"data":[{"{#PID}":"1234"}]}`},
 					time.Now(),
 				),
-				testutil.MustMetric(lldName,
+				metric.New(lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"disk.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"disk.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
-				testutil.MustMetric(lldName,
+				metric.New(lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"net.iface": `{"data":[{"{#IFACE}":"eth0"}]}`},
+					map[string]any{"net.iface": `{"data":[{"{#IFACE}":"eth0"}]}`},
 					time.Now(),
 				),
 			},
@@ -772,14 +773,14 @@ func TestPush(t *testing.T) {
 			},
 			PreviousReceivedData: map[uint64]lldInfo{},
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(lldName,
+				metric.New(lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"disk.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"disk.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
-				testutil.MustMetric(lldName,
+				metric.New(lldName,
 					map[string]string{"host": "hostB"},
-					map[string]interface{}{"disk.foo": `{"data":[{"{#FOO}":"bar"}]}`},
+					map[string]any{"disk.foo": `{"data":[{"{#FOO}":"bar"}]}`},
 					time.Now(),
 				),
 			},
@@ -822,9 +823,9 @@ func TestPush(t *testing.T) {
 				},
 			},
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(lldName,
+				metric.New(lldName,
 					map[string]string{"host": "hostA"},
-					map[string]interface{}{"disk.foo": `{"data":[]}`},
+					map[string]any{"disk.foo": `{"data":[]}`},
 					time.Now(),
 				),
 			},
@@ -906,16 +907,16 @@ func TestAdd(t *testing.T) {
 	}{
 		"metric without tags is ignored": {
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric("disk", map[string]string{}, map[string]interface{}{"a": 0}, time.Now()),
+				metric.New("disk", map[string]string{}, map[string]any{"a": 0}, time.Now()),
 			},
 			Current: map[uint64]lldInfo{},
 		},
 		"metric with only the host tag is not used for LLD": {
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{"host": "bar"},
-					map[string]interface{}{"a": 0},
+					map[string]any{"a": 0},
 					time.Now(),
 				),
 			},
@@ -923,10 +924,10 @@ func TestAdd(t *testing.T) {
 		},
 		"add one metric with one tag and not host tag, use the system hostname": {
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{"foo": "bar"},
-					map[string]interface{}{"a": 0},
+					map[string]any{"a": 0},
 					time.Now(),
 				),
 			},
@@ -944,10 +945,10 @@ func TestAdd(t *testing.T) {
 		},
 		"add one metric with one extra tag": {
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{"host": "bar", "foo": "bar"},
-					map[string]interface{}{"a": 0},
+					map[string]any{"a": 0},
 					time.Now(),
 				),
 			},
@@ -965,16 +966,16 @@ func TestAdd(t *testing.T) {
 		},
 		"same metric with different field values is only stored once": {
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{"host": "bar", "foo": "bar"},
-					map[string]interface{}{"a": 0},
+					map[string]any{"a": 0},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{"host": "bar", "foo": "bar"},
-					map[string]interface{}{"a": 999},
+					map[string]any{"a": 999},
 					time.Now(),
 				),
 			},
@@ -992,16 +993,16 @@ func TestAdd(t *testing.T) {
 		},
 		"for the same measurement and tags, the different combinations of tag values are stored under the same key": {
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{"host": "bar", "foo": "bar1"},
-					map[string]interface{}{"a": 0},
+					map[string]any{"a": 0},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{"host": "bar", "foo": "bar2"},
-					map[string]interface{}{"a": 0},
+					map[string]any{"a": 0},
 					time.Now(),
 				),
 			},
@@ -1022,16 +1023,16 @@ func TestAdd(t *testing.T) {
 		},
 		"same measurement and tags for different hosts are stored in different keys": {
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{"host": "barA", "foo": "bar"},
-					map[string]interface{}{"a": 0},
+					map[string]any{"a": 0},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{"host": "barB", "foo": "bar"},
-					map[string]interface{}{"a": 0},
+					map[string]any{"a": 0},
 					time.Now(),
 				),
 			},
@@ -1058,16 +1059,16 @@ func TestAdd(t *testing.T) {
 		},
 		"different number of tags for the same measurement are stored in different keys": {
 			Metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{"host": "bar", "foo1": "bar", "foo2": "bar"},
-					map[string]interface{}{"a": 0},
+					map[string]any{"a": 0},
 					time.Now(),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{"host": "bar", "foo1": "bar"},
-					map[string]interface{}{"a": 0},
+					map[string]any{"a": 0},
 					time.Now(),
 				),
 			},

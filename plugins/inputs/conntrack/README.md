@@ -23,10 +23,9 @@ is ignored.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -64,9 +63,9 @@ A detailed explanation of each fields can be found in
 [kerneldoc]: https://www.kernel.org/doc/Documentation/networking/nf_conntrack-sysctl.txt
 
 - conntrack
-  - `ip_conntrack_count` `(int, count)`: The number of entries in the conntrack table
-  - `ip_conntrack_max` `(int, size)`: The max capacity of the conntrack table
-  - `ip_conntrack_buckets`  `(int, size)`: The size of hash table.
+  - `ip_conntrack_count` `(int, count)`:   Number of entries in conntrack table
+  - `ip_conntrack_max` `(int, size)`:      Max capacity of the conntrack table
+  - `ip_conntrack_buckets`  `(int, size)`: Size of hash table
 
 With `collect = ["all"]`:
 

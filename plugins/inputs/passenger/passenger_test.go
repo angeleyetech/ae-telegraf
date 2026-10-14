@@ -17,10 +17,14 @@ func fakePassengerStatus(stat string) (string, error) {
 	var fileExtension, content string
 	if runtime.GOOS == "windows" {
 		fileExtension = ".bat"
-		content = "@echo off\n"
-		for _, line := range strings.Split(strings.TrimSuffix(stat, "\n"), "\n") {
-			content += "for /f \"delims=\" %%A in (\"" + line + "\") do echo %%~A\n" // my eyes are bleeding
+		var sb strings.Builder
+		sb.WriteString("@echo off\n")
+		for line := range strings.SplitSeq(strings.TrimSuffix(stat, "\n"), "\n") {
+			sb.WriteString("for /f \"delims=\" %%A in (\"")
+			sb.WriteString(line)
+			sb.WriteString("\") do echo %%~A\n")
 		}
+		content = sb.String()
 	} else {
 		content = fmt.Sprintf("#!/bin/sh\ncat << EOF\n%s\nEOF", stat)
 	}
@@ -98,7 +102,7 @@ func TestPassengerGenerateMetric(t *testing.T) {
 	tags := map[string]string{
 		"passenger_version": "5.0.17",
 	}
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"process_count":      23,
 		"max":                23,
 		"capacity_used":      23,
@@ -111,7 +115,7 @@ func TestPassengerGenerateMetric(t *testing.T) {
 		"app_root": "/var/app/current",
 		"app_type": "rack",
 	}
-	fields = map[string]interface{}{
+	fields = map[string]any{
 		"processes_being_spawned": 2,
 		"capacity_used":           23,
 		"get_wait_list_size":      3,
@@ -122,7 +126,7 @@ func TestPassengerGenerateMetric(t *testing.T) {
 		"name": "/var/app/current/public",
 	}
 
-	fields = map[string]interface{}{
+	fields = map[string]any{
 		"capacity_used":      23,
 		"get_wait_list_size": 3,
 	}
@@ -137,7 +141,7 @@ func TestPassengerGenerateMetric(t *testing.T) {
 		"life_status":      "ALIVE",
 		"process_group_id": "13608",
 	}
-	fields = map[string]interface{}{
+	fields = map[string]any{
 		"concurrency":           1,
 		"sessions":              0,
 		"busyness":              0,

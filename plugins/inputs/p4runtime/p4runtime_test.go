@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -129,14 +130,14 @@ func TestOneCounterRead(t *testing.T) {
 				5,
 				&p4.CounterData{ByteCount: 5, PacketCount: 1},
 			),
-			expected: []telegraf.Metric{testutil.MustMetric(
+			expected: []telegraf.Metric{metric.New(
 				"p4_runtime",
 				map[string]string{
 					"p4program_name": "P4Program",
 					"counter_name":   "foo",
 					"counter_type":   "BOTH",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"bytes":         int64(5),
 					"packets":       int64(1),
 					"counter_index": 5},
@@ -160,14 +161,14 @@ func TestOneCounterRead(t *testing.T) {
 				5,
 				&p4.CounterData{ByteCount: 5},
 			),
-			expected: []telegraf.Metric{testutil.MustMetric(
+			expected: []telegraf.Metric{metric.New(
 				"p4_runtime",
 				map[string]string{
 					"p4program_name": "P4Program",
 					"counter_name":   "foo",
 					"counter_type":   "BYTES",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"bytes":         int64(5),
 					"packets":       int64(0),
 					"counter_index": 5},
@@ -191,14 +192,14 @@ func TestOneCounterRead(t *testing.T) {
 				5,
 				&p4.CounterData{PacketCount: 1},
 			),
-			expected: []telegraf.Metric{testutil.MustMetric(
+			expected: []telegraf.Metric{metric.New(
 				"p4_runtime",
 				map[string]string{
 					"p4program_name": "P4Program",
 					"counter_name":   "foo",
 					"counter_type":   "PACKETS",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"bytes":         int64(0),
 					"packets":       int64(1),
 					"counter_index": 5},
@@ -277,7 +278,7 @@ func TestMultipleEntitiesSingleCounterRead(t *testing.T) {
 			createCounter("foo", 0, p4_config.CounterSpec_BOTH),
 		)
 
-		for i := 0; i < totalNumOfEntries; i++ {
+		for i := range totalNumOfEntries {
 			counterEntry := &p4.Entity{
 				Entity: createEntityCounterEntry(
 					0,
@@ -290,14 +291,14 @@ func TestMultipleEntitiesSingleCounterRead(t *testing.T) {
 			}
 
 			entities = append(entities, counterEntry)
-			expected = append(expected, testutil.MustMetric(
+			expected = append(expected, metric.New(
 				"p4_runtime",
 				map[string]string{
 					"p4program_name": "P4Program",
 					"counter_name":   "foo",
 					"counter_type":   "BOTH",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"bytes":         int64(10),
 					"packets":       int64(10),
 					"counter_index": i,
@@ -372,14 +373,14 @@ func TestSingleEntitiesMultipleCounterRead(t *testing.T) {
 				),
 			)
 
-			expected = append(expected, testutil.MustMetric(
+			expected = append(expected, metric.New(
 				"p4_runtime",
 				map[string]string{
 					"p4program_name": "P4Program",
 					"counter_name":   counterName,
 					"counter_type":   "BOTH",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"bytes":         int64(10),
 					"packets":       int64(10),
 					"counter_index": 1,

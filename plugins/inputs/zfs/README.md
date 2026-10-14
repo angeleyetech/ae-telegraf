@@ -11,10 +11,9 @@ This plugin gathers metrics from [ZFS][zfs] filesystems using
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -217,8 +216,8 @@ but it was already cached (boring)
 was not in the cache (good job, could become a demand hit in the future)
 - `arcstats_prefetch_metadata_hits` Same as above, but for metadata
 - `arcstats_prefetch_metadata_misses` Same as above, but for metadata
-- `arcstats_mru_hits` Cache hit in the “most recently used cache”, we move this to
-the mfu cache.
+- `arcstats_mru_hits` Cache hit in the “most recently used cache”, we move this
+to the mfu cache.
 - `arcstats_mru_ghost_hits` Cache hit in the “most recently used ghost list” we
 had this item in the cache, but evicted it, maybe we should increase the mru
 cache size.
@@ -270,8 +269,8 @@ cache because of the prefetcher.
 - `zfetchstats_misses` Counts the number of prefetch cache misses.
 - `zfetchstats_colinear_hits` Counts the number of cache hits, to items which are
 in the cache because of the prefetcher (prefetched linear reads)
-- `zfetchstats_stride_hits` Counts the number of cache hits, to items which are in
-the cache because of the prefetcher (prefetched stride reads)
+- `zfetchstats_stride_hits` Counts the number of cache hits, to items which are
+in the cache because of the prefetcher (prefetched stride reads)
 
 ### Vdev Cache Stats (FreeBSD)
 

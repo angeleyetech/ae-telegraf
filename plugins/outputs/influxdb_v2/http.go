@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/alitto/pond/v2"
-	"golang.org/x/net/http2"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
@@ -97,21 +96,21 @@ func (c *httpClient) Init() error {
 			TLSClientConfig: c.tlsConfig,
 			DialContext:     dialerFunc,
 		}
+
 		if c.readIdleTimeout != 0 || c.pingTimeout != 0 {
-			http2Trans, err := http2.ConfigureTransports(transport)
-			if err == nil {
-				http2Trans.ReadIdleTimeout = time.Duration(c.readIdleTimeout)
-				http2Trans.PingTimeout = time.Duration(c.pingTimeout)
+			transport.Protocols = &http.Protocols{}
+			transport.Protocols.SetHTTP1(true)
+			transport.Protocols.SetHTTP2(true)
+			transport.HTTP2 = &http.HTTP2Config{
+				SendPingTimeout: time.Duration(c.readIdleTimeout),
+				PingTimeout:     time.Duration(c.pingTimeout),
 			}
 		}
 	case "unix":
+		socketPath := c.url.Path
 		transport = &http.Transport{
-			Dial: func(_, _ string) (net.Conn, error) {
-				return net.DialTimeout(
-					c.url.Scheme,
-					c.url.Path,
-					c.timeout,
-				)
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return (&net.Dialer{Timeout: c.timeout}).DialContext(ctx, "unix", socketPath)
 			},
 		}
 	default:
@@ -144,6 +143,7 @@ func (c *httpClient) Write(ctx context.Context, metrics []telegraf.Metric) error
 	}
 
 	// Create the batches for sending
+	start := time.Now()
 	workers := int(c.concurrent)
 	batchSize := len(metrics) / workers
 	if len(metrics)%workers > 0 {
@@ -155,11 +155,13 @@ func (c *httpClient) Write(ctx context.Context, metrics []telegraf.Metric) error
 	} else {
 		batches = createBatchesFromTag(metrics, c.bucketTag, c.bucket, batchSize, c.excludeBucketTag)
 	}
+	c.log.Tracef("    Creating %d batches took %.3fms...", len(batches), time.Since(start).Seconds()*1000)
 
 	// Serialize the data in the batches
 	ratets := time.Now()
 	defer c.rateLimiter.Release()
 
+	start = time.Now()
 	limitReached := -1
 	var writeErr internal.PartialWriteError
 	for i, batch := range batches {
@@ -169,8 +171,7 @@ func (c *httpClient) Write(ctx context.Context, metrics []telegraf.Metric) error
 		// Serialize the metrics with the remaining limit, exit early if nothing was serialized
 		used, err := batch.serialize(c.serializer, limit, c.encoder)
 		if err != nil {
-			var werr *internal.PartialWriteError
-			if errors.As(err, &werr) {
+			if werr, ok := errors.AsType[*internal.PartialWriteError](err); ok {
 				writeErr.MetricsReject = append(writeErr.MetricsReject, werr.MetricsReject...)
 				writeErr.MetricsRejectErrors = append(writeErr.MetricsRejectErrors, werr.MetricsRejectErrors...)
 				writeErr.Err = werr.Err
@@ -192,12 +193,14 @@ func (c *httpClient) Write(ctx context.Context, metrics []telegraf.Metric) error
 			break
 		}
 	}
+	c.log.Tracef("    Serializing %d batches took %.3fms...", len(batches), time.Since(start).Seconds()*1000)
 
 	// Skip all non-serialized batches
 	if limitReached > 0 && limitReached < len(batches) {
 		batches = batches[:limitReached]
 	}
 
+	start = time.Now()
 	// Send the batches
 	var splitMu sync.Mutex
 	var split []int
@@ -219,8 +222,7 @@ func (c *httpClient) Write(ctx context.Context, metrics []telegraf.Metric) error
 			c.rateLimiter.Accept(ratets, int64(len(batch.payload)))
 			batch.processed = true
 			if err := c.writeBatch(ctx, batch); err != nil {
-				var terr *ThrottleError
-				if errors.As(err, &terr) {
+				if terr, ok := errors.AsType[*ThrottleError](err); ok {
 					if terr.StatusCode == http.StatusRequestEntityTooLarge {
 						splitMu.Lock()
 						split = append(split, i)
@@ -248,6 +250,7 @@ func (c *httpClient) Write(ctx context.Context, metrics []telegraf.Metric) error
 		}
 		return err
 	}
+	c.log.Tracef("    Sending %d batches took %.3fms...", len(batches), time.Since(start).Seconds()*1000)
 
 	// Explicitly release all reserved rate portions here as we finished the
 	// first sending stage. Below we may also reserve rate portions but those
@@ -256,6 +259,7 @@ func (c *httpClient) Write(ctx context.Context, metrics []telegraf.Metric) error
 
 	// Handle the batches that need resending and remove the split instances
 	if !throttle.Load() {
+		start = time.Now()
 		slices.Reverse(split)
 		for _, idx := range split {
 			// Delete the split patch
@@ -264,6 +268,7 @@ func (c *httpClient) Write(ctx context.Context, metrics []telegraf.Metric) error
 			batches = append(batches, s...)
 			batches = slices.Delete(batches, idx, idx+1)
 		}
+		c.log.Tracef("    Sending %d throttled batches took %.3fms...", len(split), time.Since(start).Seconds()*1000)
 	}
 
 	// Check the errors
@@ -324,9 +329,23 @@ func (c *httpClient) writeBatch(ctx context.Context, b *batch) error {
 		return fmt.Errorf("adding headers failed: %w", err)
 	}
 
-	// Execute the request
+	// Log request details before sending
+	payloadSize := len(b.payload)
+	metricCount := len(b.metrics)
+	c.log.Tracef(
+		"Sending batch to %s: metrics=%d, size=%d bytes (%.2f KB), bucket=%q, timeout=%s",
+		c.url, metricCount, payloadSize, float64(payloadSize)/1024, b.bucket, c.timeout,
+	)
+
+	// Execute the request and track timing
+	start := time.Now()
 	resp, err := c.client.Do(req.WithContext(ctx))
+	elapsed := time.Since(start)
 	if err != nil {
+		c.log.Tracef(
+			"Request %s failed after %s (timeout=%s): metrics=%d, size=%d bytes, bucket=%q, error=%v",
+			c.url, elapsed, c.timeout, metricCount, payloadSize, b.bucket, err,
+		)
 		internal.OnClientError(c.client, err)
 		return err
 	}
@@ -345,10 +364,18 @@ func (c *httpClient) writeBatch(ctx context.Context, b *batch) error {
 		http.StatusMultiStatus,
 		http.StatusAlreadyReported:
 		c.retryCount.Store(0)
+		c.log.Tracef(
+			"Request to %s succeeded in %s: metrics=%d, size=%d bytes (%.2f KB), bucket=%q",
+			c.url, elapsed, metricCount, payloadSize, float64(payloadSize)/1024, b.bucket,
+		)
 		return nil
 	}
 
 	// We got an error and now try to decode further
+	c.log.Tracef(
+		"Request to %s returned error status in %s: metrics=%d, size=%d bytes, bucket=%q, status=%s",
+		c.url, elapsed, metricCount, payloadSize, b.bucket, resp.Status,
+	)
 	var desc string
 	writeResp := &genericRespError{}
 	if json.NewDecoder(resp.Body).Decode(writeResp) == nil {

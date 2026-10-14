@@ -10,11 +10,7 @@ import (
 )
 
 type mockHandler struct {
-	responseMap map[string]interface{}
-}
-
-func toPtr[T any](v T) *T {
-	return &v
+	responseMap map[string]any
 }
 
 func TestNewClient(t *testing.T) {

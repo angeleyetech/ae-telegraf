@@ -135,7 +135,7 @@ func TestCases(t *testing.T) {
 			var acc testutil.Accumulator
 			require.NoError(t, plugin.Gather(&acc))
 
-			var actualErrorMsgs []string
+			actualErrorMsgs := make([]string, 0, len(acc.Errors))
 			for _, err := range acc.Errors {
 				actualErrorMsgs = append(actualErrorMsgs, err.Error())
 			}
@@ -186,9 +186,7 @@ func (s *server) start() (string, error) {
 	s.listener = listener
 
 	addr := listener.Addr().String()
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
+	s.wg.Go(func() {
 		for {
 			conn, err := s.listener.Accept()
 			if err != nil {
@@ -218,7 +216,7 @@ func (s *server) start() (string, error) {
 				}
 			}(conn)
 		}
-	}()
+	})
 	return addr, nil
 }
 

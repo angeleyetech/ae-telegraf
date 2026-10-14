@@ -101,7 +101,7 @@ func TestEnvironmentSubstitution(t *testing.T) {
 			if tt.setEnv != nil {
 				tt.setEnv(t)
 			}
-			actual, err := substituteEnvironment([]byte(tt.contents), false)
+			actual, err := substituteEnvironmentNonStrict([]byte(tt.contents), false)
 			if tt.wantErr {
 				require.ErrorContains(t, err, tt.errSubstring)
 				return
@@ -204,7 +204,7 @@ func TestEnvironmentSubstitutionOldBehavior(t *testing.T) {
 			t.Setenv("VAR", "foobar")
 			t.Setenv("FALLBACK", "default")
 			t.Setenv("EMPTY", "")
-			actual, err := substituteEnvironment([]byte(tt.contents), true)
+			actual, err := substituteEnvironmentNonStrict([]byte(tt.contents), true)
 			require.NoError(t, err)
 			require.EqualValues(t, tt.expected, string(actual))
 		})
@@ -298,7 +298,7 @@ func TestEnvironmentSubstitutionNewBehavior(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("VAR", "foobar")
 			t.Setenv("FALLBACK", "default")
-			actual, err := substituteEnvironment([]byte(tt.contents), false)
+			actual, err := substituteEnvironmentNonStrict([]byte(tt.contents), false)
 			require.NoError(t, err)
 			require.EqualValues(t, tt.expected, string(actual))
 		})
@@ -372,6 +372,31 @@ func TestRemoveComments(t *testing.T) {
 
 	// Do the comparison
 	require.Equal(t, string(expected), string(actual))
+}
+
+func TestRemoveCommentsQuotesAtEOF(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"empty basic string", `[agent]` + "\n" + `  hostname = ""`},
+		{"empty literal string", `[agent]` + "\n" + `  hostname = ''`},
+		{"non-empty basic string", `[agent]` + "\n" + `  hostname = "a"`},
+		{"four double quotes", `[agent]` + "\n" + `  hostname = """"`},
+		{"four single quotes", `[agent]` + "\n" + `  hostname = ''''`},
+		{"five double quotes", `[agent]` + "\n" + `  hostname = """""`},
+		{"empty multi-line basic string", `[agent]` + "\n" + `  hostname = """"""`},
+		{"empty multi-line literal string", `[agent]` + "\n" + `  hostname = ''''''`},
+		{"trailing newline", `[agent]` + "\n" + `  hostname = ""` + "\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := removeComments([]byte(tt.input))
+			require.NoError(t, err)
+			require.Equal(t, tt.input, string(actual))
+		})
+	}
 }
 
 func TestURLRetries3Fails(t *testing.T) {

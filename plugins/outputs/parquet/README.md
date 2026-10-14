@@ -19,10 +19,9 @@ well as a blog post on [querying parquet][querying].
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -63,6 +62,10 @@ When writing to a file, the schema is used to look for each value and if it is
 not present a null value is added. The result is that if additional fields are
 present after the first metric flush those fields are omitted.
 
+The `timestamp_field_name` column holds the metric time, so a field or tag with
+that same name is dropped and logged. Set `timestamp_field_name` to another name
+or rename the field or tag to keep both.
+
 ### Write
 
 The plugin makes use of the buffered writer. This may buffer some metrics into
@@ -87,8 +90,14 @@ If a file with the same target name exists at start, the existing file is
 rotated to avoid over-writing it or conflicting schema.
 
 File rotation is available via a time based interval that a user can optionally
-set. Due to the usage of a buffered writer, a size based rotation is not
-possible as the file may not actually get data at each interval.
+set, measured from the time the current file was created. Due to the usage of a
+buffered writer, a size based rotation is not possible as the file may not
+actually get data at each interval.
+
+The file is not inspected between rotations, so a file removed or replaced
+underneath the agent goes unnoticed and everything written to it is lost until
+the next rotation opens a new file. With `rotation_interval` unset there is no
+next rotation, so those metrics are lost for the lifetime of the agent.
 
 ## Explore Parquet Files
 

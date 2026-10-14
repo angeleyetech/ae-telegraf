@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/models"
 	"github.com/influxdata/telegraf/plugins/processors"
 	"github.com/influxdata/telegraf/testutil"
@@ -52,22 +53,22 @@ func TestRunningProcessorApply(t *testing.T) {
 				},
 			},
 			input: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),
 				),
 			},
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{
 						"apply": "true",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),
@@ -94,22 +95,22 @@ func TestRunningProcessorApply(t *testing.T) {
 				},
 			},
 			input: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),
 				),
 			},
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{
 						"apply": "true",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),
@@ -136,20 +137,20 @@ func TestRunningProcessorApply(t *testing.T) {
 				},
 			},
 			input: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),
 				),
 			},
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(0, 0),

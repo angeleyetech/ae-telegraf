@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -27,7 +28,7 @@ func TestPersistentVolumeClaim(t *testing.T) {
 		{
 			name: "no pv claims",
 			handler: &mockHandler{
-				responseMap: map[string]interface{}{
+				responseMap: map[string]any{
 					"/persistentvolumeclaims/": &corev1.PersistentVolumeClaimList{},
 				},
 			},
@@ -36,7 +37,7 @@ func TestPersistentVolumeClaim(t *testing.T) {
 		{
 			name: "collect pv claims",
 			handler: &mockHandler{
-				responseMap: map[string]interface{}{
+				responseMap: map[string]any{
 					"/persistentvolumeclaims/": &corev1.PersistentVolumeClaimList{
 						Items: []corev1.PersistentVolumeClaim{
 							{
@@ -45,7 +46,7 @@ func TestPersistentVolumeClaim(t *testing.T) {
 								},
 								Spec: corev1.PersistentVolumeClaimSpec{
 									VolumeName:       "pvc-dc870fd6-1e08-11e8-b226-02aa4bc06eb8",
-									StorageClassName: toPtr("ebs-1"),
+									StorageClassName: new("ebs-1"),
 									Selector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
 											"select1": "s1",
@@ -53,22 +54,20 @@ func TestPersistentVolumeClaim(t *testing.T) {
 										},
 									},
 								},
-								ObjectMeta: metav1.ObjectMeta{
-									Namespace: "ns1",
-									Name:      "pc1",
-									Labels: map[string]string{
-										"lab1": "v1",
-										"lab2": "v2",
-									},
-									CreationTimestamp: metav1.Time{Time: now},
+								Namespace: "ns1",
+								Name:      "pc1",
+								Labels: map[string]string{
+									"lab1": "v1",
+									"lab2": "v2",
 								},
+								CreationTimestamp: metav1.Time{Time: now},
 							},
 						},
 					},
 				},
 			},
 			output: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"kubernetes_persistentvolumeclaim",
 					map[string]string{
 						"pvc_name":         "pc1",
@@ -78,7 +77,7 @@ func TestPersistentVolumeClaim(t *testing.T) {
 						"selector_select1": "s1",
 						"selector_select2": "s2",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"phase_type": 0,
 					},
 					time.Unix(0, 0),
@@ -90,7 +89,7 @@ func TestPersistentVolumeClaim(t *testing.T) {
 			name:     "no label selectors",
 			hasError: false,
 			handler: &mockHandler{
-				responseMap: map[string]interface{}{
+				responseMap: map[string]any{
 					"/persistentvolumeclaims/": &corev1.PersistentVolumeClaimList{
 						Items: []corev1.PersistentVolumeClaim{
 							{
@@ -99,25 +98,23 @@ func TestPersistentVolumeClaim(t *testing.T) {
 								},
 								Spec: corev1.PersistentVolumeClaimSpec{
 									VolumeName:       "pvc-dc870fd6-1e08-11e8-b226-02aa4bc06eb8",
-									StorageClassName: toPtr("ebs-1"),
+									StorageClassName: new("ebs-1"),
 									Selector:         nil,
 								},
-								ObjectMeta: metav1.ObjectMeta{
-									Namespace: "ns1",
-									Name:      "pc1",
-									Labels: map[string]string{
-										"lab1": "v1",
-										"lab2": "v2",
-									},
-									CreationTimestamp: metav1.Time{Time: now},
+								Namespace: "ns1",
+								Name:      "pc1",
+								Labels: map[string]string{
+									"lab1": "v1",
+									"lab2": "v2",
 								},
+								CreationTimestamp: metav1.Time{Time: now},
 							},
 						},
 					},
 				},
 			},
 			output: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"kubernetes_persistentvolumeclaim",
 					map[string]string{
 						"pvc_name":     "pc1",
@@ -125,7 +122,7 @@ func TestPersistentVolumeClaim(t *testing.T) {
 						"storageclass": "ebs-1",
 						"phase":        "bound",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"phase_type": 0,
 					},
 					time.Unix(0, 0),
@@ -135,7 +132,7 @@ func TestPersistentVolumeClaim(t *testing.T) {
 		{
 			name: "no storage class name",
 			handler: &mockHandler{
-				responseMap: map[string]interface{}{
+				responseMap: map[string]any{
 					"/persistentvolumeclaims/": &corev1.PersistentVolumeClaimList{
 						Items: []corev1.PersistentVolumeClaim{
 							{
@@ -152,22 +149,20 @@ func TestPersistentVolumeClaim(t *testing.T) {
 										},
 									},
 								},
-								ObjectMeta: metav1.ObjectMeta{
-									Namespace: "ns1",
-									Name:      "pc1",
-									Labels: map[string]string{
-										"lab1": "v1",
-										"lab2": "v2",
-									},
-									CreationTimestamp: metav1.Time{Time: now},
+								Namespace: "ns1",
+								Name:      "pc1",
+								Labels: map[string]string{
+									"lab1": "v1",
+									"lab2": "v2",
 								},
+								CreationTimestamp: metav1.Time{Time: now},
 							},
 						},
 					},
 				},
 			},
 			output: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"kubernetes_persistentvolumeclaim",
 					map[string]string{
 						"pvc_name":         "pc1",
@@ -176,7 +171,7 @@ func TestPersistentVolumeClaim(t *testing.T) {
 						"selector_select1": "s1",
 						"selector_select2": "s2",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"phase_type": 0,
 					},
 					time.Unix(0, 0),
@@ -215,7 +210,7 @@ func TestPersistentVolumeClaimSelectorFilter(t *testing.T) {
 	now := time.Now()
 	now = time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 1, 36, 0, now.Location())
 
-	responseMap := map[string]interface{}{
+	responseMap := map[string]any{
 		"/persistentvolumeclaims/": &corev1.PersistentVolumeClaimList{
 			Items: []corev1.PersistentVolumeClaim{
 				{
@@ -224,7 +219,7 @@ func TestPersistentVolumeClaimSelectorFilter(t *testing.T) {
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						VolumeName:       "pvc-dc870fd6-1e08-11e8-b226-02aa4bc06eb8",
-						StorageClassName: toPtr("ebs-1"),
+						StorageClassName: new("ebs-1"),
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"select1": "s1",
@@ -232,15 +227,13 @@ func TestPersistentVolumeClaimSelectorFilter(t *testing.T) {
 							},
 						},
 					},
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "ns1",
-						Name:      "pc1",
-						Labels: map[string]string{
-							"lab1": "v1",
-							"lab2": "v2",
-						},
-						CreationTimestamp: metav1.Time{Time: now},
+					Namespace: "ns1",
+					Name:      "pc1",
+					Labels: map[string]string{
+						"lab1": "v1",
+						"lab2": "v2",
 					},
+					CreationTimestamp: metav1.Time{Time: now},
 				},
 			},
 		},
@@ -348,8 +341,8 @@ func TestPersistentVolumeClaimSelectorFilter(t *testing.T) {
 
 		// Grab selector tags
 		actual := map[string]string{}
-		for _, metric := range acc.Metrics {
-			for key, val := range metric.Tags {
+		for _, m := range acc.Metrics {
+			for key, val := range m.Tags {
 				if strings.Contains(key, "selector_") {
 					actual[key] = val
 				}

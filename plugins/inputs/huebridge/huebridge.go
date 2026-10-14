@@ -2,6 +2,7 @@
 package huebridge
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"fmt"
@@ -86,11 +87,11 @@ func (h *HueBridge) Init() error {
 func (h *HueBridge) Gather(acc telegraf.Accumulator) error {
 	var wg sync.WaitGroup
 	for _, bridge := range h.bridges {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			acc.AddError(bridge.process(acc))
-		}()
+		wg.Go(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(h.Timeout))
+			defer cancel()
+			acc.AddError(bridge.process(ctx, acc))
+		})
 	}
 	wg.Wait()
 	return nil

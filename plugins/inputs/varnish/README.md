@@ -16,10 +16,9 @@ instance using the `varnishstat` command.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -351,7 +350,7 @@ be used as a tag, and removed from field names.
   - VBE.default(127.0.0.1,,8080).bereq_hdrbytes   (uint64, count, Req. header bytes)
   - VBE.default(127.0.0.1,,8080).bereq_bodybytes  (uint64, count, Request body bytes)
   - VBE.default(127.0.0.1,,8080).beresp_hdrbytes  (uint64, count, Resp. header bytes)
-  - VBE.default(127.0.0.1,,8080).beresp_bodybytes (uint64, count, Response body bytes)
+  - VBE.default(127.0.0.1,,8080).beresp_bodybytes (uint64, count, Resp. body bytes)
   - VBE.default(127.0.0.1,,8080).pipe_hdrbytes    (uint64, count, Pipe request header)
   - VBE.default(127.0.0.1,,8080).pipe_out         (uint64, count, Piped bytes to)
   - VBE.default(127.0.0.1,,8080).pipe_in          (uint64, count, Piped bytes from)

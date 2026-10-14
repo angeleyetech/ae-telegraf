@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/newrelic/newrelic-telemetry-sdk-go/cumulative"
@@ -31,7 +32,7 @@ type NewRelic struct {
 
 	harvestor   *telemetry.Harvester
 	dc          *cumulative.DeltaCalculator
-	savedErrors map[int]interface{}
+	savedErrors map[int]any
 	errorCount  int
 	client      http.Client
 }
@@ -57,13 +58,13 @@ func (nr *NewRelic) Connect() error {
 			cfg.ProductVersion = "1.0"
 			cfg.HarvestTimeout = time.Duration(nr.Timeout)
 			cfg.Client = &nr.client
-			cfg.ErrorLogger = func(e map[string]interface{}) {
-				var errorString string
+			cfg.ErrorLogger = func(e map[string]any) {
+				var b strings.Builder
 				for k, v := range e {
-					errorString += fmt.Sprintf("%s = %s ", k, v)
+					fmt.Fprintf(&b, "%s = %s ", k, v)
 				}
 				nr.errorCount++
-				nr.savedErrors[nr.errorCount] = errorString
+				nr.savedErrors[nr.errorCount] = b.String()
 			}
 			if nr.MetricURL != "" {
 				cfg.MetricsURLOverride = nr.MetricURL
@@ -87,11 +88,11 @@ func (nr *NewRelic) Close() error {
 // Write takes in group of points to be written to the Output
 func (nr *NewRelic) Write(metrics []telegraf.Metric) error {
 	nr.errorCount = 0
-	nr.savedErrors = make(map[int]interface{})
+	nr.savedErrors = make(map[int]any)
 
 	for _, metric := range metrics {
 		// create tag map
-		tags := make(map[string]interface{})
+		tags := make(map[string]any)
 		for _, tag := range metric.TagList() {
 			tags[tag.Key] = tag.Value
 		}

@@ -16,17 +16,16 @@ additional metrics.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
-## Secret-store support
+## Secret store support
 
-This plugin supports secrets from secret-stores for the `address` option.
-See the [secret-store documentation][SECRETSTORE] for more details on how
+This plugin supports secrets from secret stores for the `address` option.
+See the [secret store documentation][SECRETSTORE] for more details on how
 to use them.
 
 [SECRETSTORE]: ../../../docs/CONFIGURATION.md#secret-store-secrets
@@ -132,8 +131,9 @@ using the postgresql extensions [pg_stat_statements][pg_stat_statements],
   withdbname=false
   tagvalue="db,username,state"
 [[inputs.postgresql_extensible.query]]
-  sqlquery="select setting as max_connections from pg_settings where \
-  name='max_connections'"
+  sqlquery="""\
+  select setting as max_connections from pg_settings where \
+  name='max_connections'"""
   version=801
   withdbname=false
   tagvalue=""
@@ -143,15 +143,17 @@ using the postgresql extensions [pg_stat_statements][pg_stat_statements],
   withdbname=false
   tagvalue=""
 [[inputs.postgresql_extensible.query]]
-  sqlquery="select setting as shared_buffers from pg_settings where \
-  name='shared_buffers'"
+  sqlquery="""\
+  select setting as shared_buffers from pg_settings where \
+  name='shared_buffers'"""
   version=801
   withdbname=false
   tagvalue=""
 [[inputs.postgresql_extensible.query]]
-  sqlquery="SELECT db, count( distinct blocking_pid ) AS num_blocking_sessions,\
+  sqlquery="""\
+  SELECT db, count( distinct blocking_pid ) AS num_blocking_sessions,\
   count( distinct blocked_pid) AS num_blocked_sessions FROM \
-  public.blocking_procs group by db"
+  public.blocking_procs group by db"""
   version=901
   withdbname=false
   tagvalue="db"

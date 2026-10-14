@@ -120,7 +120,7 @@ func TestParseValidJSON(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 	require.Equal(t, "json_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
@@ -131,7 +131,7 @@ func TestParseValidJSON(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 	require.Equal(t, "json_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"d":   float64(7),
 		"b_d": float64(8),
 	}, actual[0].Fields())
@@ -142,7 +142,7 @@ func TestParseValidJSON(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 	require.Equal(t, "json_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
@@ -167,7 +167,7 @@ func TestParseLineValidJSON(t *testing.T) {
 	actual, err := parser.ParseLine(validJSON)
 	require.NoError(t, err)
 	require.Equal(t, "json_test", actual.Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual.Fields())
@@ -177,7 +177,7 @@ func TestParseLineValidJSON(t *testing.T) {
 	actual, err = parser.ParseLine(validJSONNewline)
 	require.NoError(t, err)
 	require.Equal(t, "json_test", actual.Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"d":   float64(7),
 		"b_d": float64(8),
 	}, actual.Fields())
@@ -187,7 +187,7 @@ func TestParseLineValidJSON(t *testing.T) {
 	actual, err = parser.ParseLine(validJSONTags)
 	require.NoError(t, err)
 	require.Equal(t, "json_test", actual.Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual.Fields())
@@ -253,7 +253,7 @@ func TestParseWithTagKeys(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 	require.Equal(t, "json_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
@@ -270,7 +270,7 @@ func TestParseWithTagKeys(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 	require.Equal(t, "json_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
@@ -289,7 +289,7 @@ func TestParseWithTagKeys(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 	require.Equal(t, "json_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
@@ -310,7 +310,7 @@ func TestParseLineWithTagKeys(t *testing.T) {
 	actual, err := parser.ParseLine(validJSONTags)
 	require.NoError(t, err)
 	require.Equal(t, "json_test", actual.Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual.Fields())
@@ -326,7 +326,7 @@ func TestParseLineWithTagKeys(t *testing.T) {
 	actual, err = parser.ParseLine(validJSONTags)
 	require.NoError(t, err)
 	require.Equal(t, "json_test", actual.Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual.Fields())
@@ -344,7 +344,7 @@ func TestParseLineWithTagKeys(t *testing.T) {
 	actual, err = parser.ParseLine(validJSONTags)
 	require.NoError(t, err)
 	require.Equal(t, "json_test", actual.Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual.Fields())
@@ -367,7 +367,7 @@ func TestParseValidJSONDefaultTags(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 	require.Equal(t, "json_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
@@ -378,7 +378,7 @@ func TestParseValidJSONDefaultTags(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 	require.Equal(t, "json_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
@@ -402,7 +402,7 @@ func TestParseValidJSONDefaultTagsOverride(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 	require.Equal(t, "json_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
@@ -413,7 +413,7 @@ func TestParseValidJSONDefaultTagsOverride(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 	require.Equal(t, "json_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
@@ -432,7 +432,7 @@ func TestParseValidJSONArray(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
 	require.Equal(t, "json_array_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
@@ -443,13 +443,13 @@ func TestParseValidJSONArray(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 2)
 	require.Equal(t, "json_array_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
 	require.Equal(t, map[string]string{}, actual[1].Tags())
 	require.Equal(t, "json_array_test", actual[1].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(7),
 		"b_c": float64(8),
 	}, actual[1].Fields())
@@ -468,14 +468,14 @@ func TestParseArrayWithTagKeys(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 2)
 	require.Equal(t, "json_array_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
 	require.Equal(t, map[string]string{}, actual[0].Tags())
 
 	require.Equal(t, "json_array_test", actual[1].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(7),
 		"b_c": float64(8),
 	}, actual[1].Fields())
@@ -492,7 +492,7 @@ func TestParseArrayWithTagKeys(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 2)
 	require.Equal(t, "json_array_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
@@ -501,7 +501,7 @@ func TestParseArrayWithTagKeys(t *testing.T) {
 	}, actual[0].Tags())
 
 	require.Equal(t, "json_array_test", actual[1].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(7),
 		"b_c": float64(8),
 	}, actual[1].Fields())
@@ -520,7 +520,7 @@ func TestParseArrayWithTagKeys(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, actual, 2)
 	require.Equal(t, "json_array_test", actual[0].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(5),
 		"b_c": float64(6),
 	}, actual[0].Fields())
@@ -530,7 +530,7 @@ func TestParseArrayWithTagKeys(t *testing.T) {
 	}, actual[0].Tags())
 
 	require.Equal(t, "json_array_test", actual[1].Name())
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"a":   float64(7),
 		"b_c": float64(8),
 	}, actual[1].Fields())
@@ -896,12 +896,12 @@ func TestParse(t *testing.T) {
 			},
 			input: []byte(`{"metric": {"__name__": "howdy", "time_idle": 42}}`),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"json",
 					map[string]string{
 						"metric___name__": "howdy",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"metric_time_idle": 42.0,
 					},
 					time.Unix(0, 0),
@@ -930,10 +930,10 @@ func TestParse(t *testing.T) {
 			},
 			input: []byte(`[{"answer": 42}]`),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"json",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"answer": 42.0,
 					},
 					time.Unix(0, 0),
@@ -953,10 +953,10 @@ func TestParse(t *testing.T) {
 }
 `),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"json",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"color":  "red",
 						"status": "error",
 					},
@@ -978,10 +978,10 @@ func TestParse(t *testing.T) {
 }
 `),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"json",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42.0,
 					},
 					time.Unix(1541183052, 0),
@@ -1017,13 +1017,13 @@ func TestParseWithWildcardTagKeys(t *testing.T) {
 			},
 			input: []byte(validJSONTags),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"json_test",
 					map[string]string{
 						"tags_object_mytag":    "foobar",
 						"tags_object_othertag": "baz",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"a":   float64(5),
 						"b_c": float64(6),
 					},
@@ -1039,7 +1039,7 @@ func TestParseWithWildcardTagKeys(t *testing.T) {
 			},
 			input: []byte(validJSONTags),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"json_test",
 					map[string]string{
 						"mytag":                "foobar",
@@ -1047,7 +1047,7 @@ func TestParseWithWildcardTagKeys(t *testing.T) {
 						"tags_object_mytag":    "foobar",
 						"tags_object_othertag": "baz",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"a":   float64(5),
 						"b_c": float64(6),
 					},
@@ -1063,13 +1063,13 @@ func TestParseWithWildcardTagKeys(t *testing.T) {
 			},
 			input: []byte(validJSONTags),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"json_test",
 					map[string]string{
 						"tags_object_mytag":    "foobar",
 						"tags_object_othertag": "baz",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"a":   float64(5),
 						"b_c": float64(6),
 					},
@@ -1085,14 +1085,14 @@ func TestParseWithWildcardTagKeys(t *testing.T) {
 			},
 			input: []byte(validJSONTags),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"json_test",
 					map[string]string{
 						"mytag":                "foobar",
 						"tags_object_mytag":    "foobar",
 						"tags_object_othertag": "baz",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"a":   float64(5),
 						"b_c": float64(6),
 					},
@@ -1127,13 +1127,13 @@ func TestParseLineWithWildcardTagKeys(t *testing.T) {
 				TagKeys:    []string{"tags_object_*"},
 			},
 			input: validJSONTags,
-			expected: testutil.MustMetric(
+			expected: metric.New(
 				"json_test",
 				map[string]string{
 					"tags_object_mytag":    "foobar",
 					"tags_object_othertag": "baz",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"a":   float64(5),
 					"b_c": float64(6),
 				},
@@ -1147,7 +1147,7 @@ func TestParseLineWithWildcardTagKeys(t *testing.T) {
 				TagKeys:    []string{"*tag"},
 			},
 			input: validJSONTags,
-			expected: testutil.MustMetric(
+			expected: metric.New(
 				"json_test",
 				map[string]string{
 					"mytag":                "foobar",
@@ -1155,7 +1155,7 @@ func TestParseLineWithWildcardTagKeys(t *testing.T) {
 					"tags_object_mytag":    "foobar",
 					"tags_object_othertag": "baz",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"a":   float64(5),
 					"b_c": float64(6),
 				},
@@ -1169,13 +1169,13 @@ func TestParseLineWithWildcardTagKeys(t *testing.T) {
 				TagKeys:    []string{"wrongtagkey", "tags_object_*"},
 			},
 			input: validJSONTags,
-			expected: testutil.MustMetric(
+			expected: metric.New(
 				"json_test",
 				map[string]string{
 					"tags_object_mytag":    "foobar",
 					"tags_object_othertag": "baz",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"a":   float64(5),
 					"b_c": float64(6),
 				},
@@ -1189,14 +1189,14 @@ func TestParseLineWithWildcardTagKeys(t *testing.T) {
 				TagKeys:    []string{"mytag", "tags_object_*"},
 			},
 			input: validJSONTags,
-			expected: testutil.MustMetric(
+			expected: metric.New(
 				"json_test",
 				map[string]string{
 					"mytag":                "foobar",
 					"tags_object_mytag":    "foobar",
 					"tags_object_othertag": "baz",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"a":   float64(5),
 					"b_c": float64(6),
 				},
@@ -1233,7 +1233,7 @@ func TestParseArrayWithWildcardTagKeys(t *testing.T) {
 			},
 			input: []byte(validJSONArrayTags),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"json_array_test",
 					map[string]string{
 						"mytag":                 "foo",
@@ -1241,13 +1241,13 @@ func TestParseArrayWithWildcardTagKeys(t *testing.T) {
 						"tags_array_0_mytag":    "foo",
 						"tags_array_1_othertag": "baz",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"a":   float64(5),
 						"b_c": float64(6),
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"json_array_test",
 					map[string]string{
 						"mytag":                 "bar",
@@ -1255,7 +1255,7 @@ func TestParseArrayWithWildcardTagKeys(t *testing.T) {
 						"tags_array_0_mytag":    "bar",
 						"tags_array_1_othertag": "baz",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"a":   float64(7),
 						"b_c": float64(8),
 					},
@@ -1271,25 +1271,25 @@ func TestParseArrayWithWildcardTagKeys(t *testing.T) {
 			},
 			input: []byte(validJSONArrayTags),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"json_array_test",
 					map[string]string{
 						"tags_array_0_mytag":    "foo",
 						"tags_array_1_othertag": "baz",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"a":   float64(5),
 						"b_c": float64(6),
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"json_array_test",
 					map[string]string{
 						"tags_array_0_mytag":    "bar",
 						"tags_array_1_othertag": "baz",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"a":   float64(7),
 						"b_c": float64(8),
 					},
@@ -1305,7 +1305,7 @@ func TestParseArrayWithWildcardTagKeys(t *testing.T) {
 			},
 			input: []byte(validJSONArrayTags),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"json_array_test",
 					map[string]string{
 						"mytag":                 "foo",
@@ -1313,13 +1313,13 @@ func TestParseArrayWithWildcardTagKeys(t *testing.T) {
 						"tags_array_0_mytag":    "foo",
 						"tags_array_1_othertag": "baz",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"a":   float64(5),
 						"b_c": float64(6),
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"json_array_test",
 					map[string]string{
 						"mytag":                 "bar",
@@ -1327,7 +1327,7 @@ func TestParseArrayWithWildcardTagKeys(t *testing.T) {
 						"tags_array_0_mytag":    "bar",
 						"tags_array_1_othertag": "baz",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"a":   float64(7),
 						"b_c": float64(8),
 					},
@@ -1343,7 +1343,7 @@ func TestParseArrayWithWildcardTagKeys(t *testing.T) {
 			},
 			input: []byte(validJSONArrayTags),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"json_array_test",
 					map[string]string{
 						"anothert":              "foo",
@@ -1352,13 +1352,13 @@ func TestParseArrayWithWildcardTagKeys(t *testing.T) {
 						"tags_array_0_mytag":    "foo",
 						"tags_array_1_othertag": "baz",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"a":   float64(5),
 						"b_c": float64(6),
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"json_array_test",
 					map[string]string{
 						"anothert":              "bar",
@@ -1367,7 +1367,7 @@ func TestParseArrayWithWildcardTagKeys(t *testing.T) {
 						"tags_array_0_mytag":    "bar",
 						"tags_array_1_othertag": "baz",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"a":   float64(7),
 						"b_c": float64(8),
 					},
@@ -1409,7 +1409,7 @@ func TestBenchmarkData(t *testing.T) {
 				"tags_sdkver":   "4.9.1",
 				"tags_value":    "false",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"fields_count_sum": float64(5),
 				"timestamp":        float64(1653643420),
 			},
@@ -1425,7 +1425,7 @@ func TestBenchmarkData(t *testing.T) {
 				"tags_sdkver":   "1.18.3",
 				"tags_value":    "true",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"fields_count_sum": float64(42),
 				"timestamp":        float64(1653646789),
 			},

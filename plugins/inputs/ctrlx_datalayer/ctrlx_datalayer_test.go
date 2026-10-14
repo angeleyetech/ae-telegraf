@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf/config"
-	common_http "github.com/influxdata/telegraf/plugins/common/http"
-	"github.com/influxdata/telegraf/plugins/common/tls"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -44,15 +42,15 @@ func TestCtrlXCreateSubscriptionBasic(t *testing.T) {
 	}))
 	defer server.Close()
 
-	subs := make([]subscription, 0)
-	subs = append(subs, subscription{
-		index: 0,
-		Nodes: []node{
-			{Name: "counter", Address: "plc/app/Application/sym/PLC_PRG/counter"},
-			{Name: "counterReverse", Address: "plc/app/Application/sym/PLC_PRG/counterReverse"},
+	subs := []subscription{
+		{
+			index: 0,
+			Nodes: []node{
+				{Name: "counter", Address: "plc/app/Application/sym/PLC_PRG/counter"},
+				{Name: "counterReverse", Address: "plc/app/Application/sym/PLC_PRG/counterReverse"},
+			},
 		},
-	},
-	)
+	}
 	s := &CtrlXDataLayer{
 		connection:   &http.Client{},
 		url:          server.URL,
@@ -90,14 +88,16 @@ func TestCtrlXCreateSubscriptionDriven(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			subs := make([]subscription, 0)
-			subs = append(subs, subscription{
-				Nodes: []node{
-					{Name: "counter", Address: "plc/app/Application/sym/PLC_PRG/counter"},
-					{Name: "counterReverse", Address: "plc/app/Application/sym/PLC_PRG/counterReverse"},
+
+			subs := []subscription{
+				{
+					Nodes: []node{
+						{Name: "counter", Address: "plc/app/Application/sym/PLC_PRG/counter"},
+						{Name: "counterReverse", Address: "plc/app/Application/sym/PLC_PRG/counterReverse"},
+					},
 				},
-			},
-			)
+			}
+
 			s := &CtrlXDataLayer{
 				connection:   &http.Client{},
 				url:          server.URL,
@@ -205,28 +205,24 @@ func cleanup(server *httptest.Server) {
 
 func initRunner(t *testing.T) (*CtrlXDataLayer, *httptest.Server) {
 	server := newServer(t)
-
-	subs := make([]subscription, 0)
-	subs = append(subs, subscription{
-		Measurement: "ctrlx",
-		Nodes: []node{
-			{Name: "counter", Address: "plc/app/Application/sym/PLC_PRG/counter"},
-		},
-	},
-	)
-	s := &CtrlXDataLayer{
-		connection: &http.Client{},
-		url:        server.URL,
-		Username:   config.NewSecret([]byte("user")),
-		Password:   config.NewSecret([]byte("password")),
-		HTTPClientConfig: common_http.HTTPClientConfig{
-			ClientConfig: tls.ClientConfig{
-				InsecureSkipVerify: true,
+	subs := []subscription{
+		{
+			Measurement: "ctrlx",
+			Nodes: []node{
+				{Name: "counter", Address: "plc/app/Application/sym/PLC_PRG/counter"},
 			},
 		},
-		Subscription: subs,
-		tokenManager: token.TokenManager{Url: server.URL, Username: "user", Password: "password", Connection: &http.Client{}},
-		Log:          testutil.Logger{},
+	}
+
+	s := &CtrlXDataLayer{
+		connection:         &http.Client{},
+		url:                server.URL,
+		Username:           config.NewSecret([]byte("user")),
+		Password:           config.NewSecret([]byte("password")),
+		InsecureSkipVerify: true,
+		Subscription:       subs,
+		tokenManager:       token.TokenManager{Url: server.URL, Username: "user", Password: "password", Connection: &http.Client{}},
+		Log:                testutil.Logger{},
 	}
 	return s, server
 }

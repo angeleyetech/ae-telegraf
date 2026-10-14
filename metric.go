@@ -26,7 +26,7 @@ type Tag struct {
 // Field represents a single field key and value.
 type Field struct {
 	Key   string
-	Value interface{}
+	Value any
 }
 
 // Metric is the type of data that is processed by Telegraf.  Input plugins,
@@ -48,7 +48,7 @@ type Metric interface {
 	TagList() []*Tag
 
 	// Fields returns the fields as a map.  This method is deprecated, use FieldList instead.
-	Fields() map[string]interface{}
+	Fields() map[string]any
 
 	// FieldList returns the fields as a slice in an undefined order.  The
 	// returned value should not be modified, use the AddField or RemoveField
@@ -91,16 +91,16 @@ type Metric interface {
 	RemoveTag(key string)
 
 	// GetField returns the value of a field and a boolean to indicate if it was set.
-	GetField(key string) (interface{}, bool)
+	GetField(key string) (any, bool)
 
 	// HasField returns true if the field is set on the Metric.
 	HasField(key string) bool
 
 	// AddField sets the field on the Metric.  If the Metric already has the field
 	// set then the current value is replaced.
-	AddField(key string, value interface{})
+	AddField(key string, value any)
 
-	// RemoveField removes the tag if it is set.
+	// RemoveField removes the field if it is set.
 	RemoveField(key string)
 
 	// SetTime sets the timestamp of the Metric.
@@ -109,7 +109,7 @@ type Metric interface {
 	// SetType sets the value-type of the Metric.
 	SetType(t ValueType)
 
-	// HashID returns an unique identifier for the series.
+	// HashID returns a unique identifier for the series.
 	HashID() uint64
 
 	// HashIDWithFieldsFiltered returns a unique identifier for the metric
@@ -137,8 +137,8 @@ type Metric interface {
 // e.g. '{{.Name}}-{{.Tag "foo"}}-{{.Field "bar"}}'
 type TemplateMetric interface {
 	Name() string
-	Field(key string) interface{}
-	Fields() map[string]interface{}
+	Field(key string) any
+	Fields() map[string]any
 	Tag(key string) string
 	Tags() map[string]string
 	Time() time.Time

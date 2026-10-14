@@ -12,10 +12,9 @@ have permissions to query those tables.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -54,6 +53,11 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
   ## - https://clickhouse.tech/docs/en/operations/server_settings/settings/#server_settings_remote_servers
   ## - https://clickhouse.tech/docs/en/operations/table_engines/distributed/
   ## - https://clickhouse.tech/docs/en/operations/table_engines/replication/#creating-replicated-tables
+  ## Note: a default ClickHouse install ships built-in example clusters in
+  ## "system.clusters" whose hosts point at localhost. With discovery enabled
+  ## these redirect scraping to the Telegraf host instead of the configured
+  ## server. For a standalone server set "auto_discovery = false", or use
+  ## "cluster_exclude" to drop the example clusters.
   # auto_discovery = true
 
   ## Filter cluster names in "system.clusters" when "auto_discovery" is "true"

@@ -10,17 +10,16 @@ This plugin writes metrics to a [InfluxDB v2.x][influxdb_v2] instance via HTTP.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
-## Secret-store support
+## Secret store support
 
-This plugin supports secrets from secret-stores for the `token` and
-`http_headers` option. See the [secret-store documentation][SECRETSTORE] for
+This plugin supports secrets from secret stores for the `token` and
+`http_headers` option. See the [secret store documentation][SECRETSTORE] for
 more details on how to use them.
 
 [SECRETSTORE]: ../../../docs/CONFIGURATION.md#secret-store-secrets
@@ -28,7 +27,7 @@ more details on how to use them.
 ## Configuration
 
 ```toml @sample.conf
-# Configuration for sending metrics to InfluxDB 2.0
+# Configuration for sending metrics to InfluxDB 2.x
 [[outputs.influxdb_v2]]
   ## The URLs of the InfluxDB cluster nodes.
   ##

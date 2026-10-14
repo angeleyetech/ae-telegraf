@@ -22,6 +22,9 @@ type batch struct {
 
 func createBatches(metrics []telegraf.Metric, bucket string, size int) []*batch {
 	number := len(metrics) / size
+	if len(metrics)%size > 0 {
+		number++
+	}
 	batches := make([]*batch, 0, number)
 	for i := range number {
 		begin := i * size
@@ -109,8 +112,7 @@ func (b *batch) serialize(serializer ratelimiter.Serializer, limit int64, encode
 		// When only part of the metrics failed to be serialized we should remove
 		// them from the normal handling and mark them as rejected for upstream
 		// to pass on this information
-		var werr *internal.PartialWriteError
-		if errors.As(serr, &werr) {
+		if werr, ok := errors.AsType[*internal.PartialWriteError](serr); ok {
 			for i, idx := range slices.Backward(werr.MetricsReject) {
 				werr.MetricsReject[i] = b.indices[idx]
 				b.indices = slices.Delete(b.indices, idx, idx+1)

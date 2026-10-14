@@ -23,10 +23,9 @@ distros still do not enable support for JSON statistics in their BIND packages.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -72,7 +71,7 @@ depending on your BIND version and configured statistics channel.
 Add the following to your named.conf if running Telegraf on the same host
 as the BIND daemon:
 
-```json
+```text
 statistics-channels {
     inet 127.0.0.1 port 8053;
 };

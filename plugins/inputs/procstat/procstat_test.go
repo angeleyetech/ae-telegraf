@@ -3,6 +3,7 @@ package procstat
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -144,7 +145,7 @@ func (p *testProc) metrics(prefix string, cfg *collectionConfig, t time.Time) ([
 		prefix += "_"
 	}
 
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		prefix + "num_fds":                      int32(0),
 		prefix + "num_threads":                  int32(0),
 		prefix + "voluntary_context_switches":   int64(0),
@@ -171,12 +172,10 @@ func (p *testProc) metrics(prefix string, cfg *collectionConfig, t time.Time) ([
 		fields[prefix+"memory_usage"] = float32(0)
 	}
 
-	tags := map[string]string{
-		"process_name": "test_proc",
-	}
-	for k, v := range p.tags {
-		tags[k] = v
-	}
+	// The process tags may override the default name
+	tags := make(map[string]string, len(p.tags)+1)
+	tags["process_name"] = "test_proc"
+	maps.Copy(tags, p.tags)
 
 	// Add the tags as requested by the user
 	if cfg.tagging["cmdline"] {
@@ -251,14 +250,14 @@ func TestInitMissingPidMethod(t *testing.T) {
 
 func TestGather_CreateProcessErrorOk(t *testing.T) {
 	expected := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"procstat_lookup",
 			map[string]string{
 				"exe":        "foo",
 				"pid_finder": "test",
 				"result":     "success",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"pid_count":   int64(1),
 				"result_code": int64(0),
 				"running":     int64(0),
@@ -287,13 +286,13 @@ func TestGather_CreateProcessErrorOk(t *testing.T) {
 
 func TestGather_ProcessName(t *testing.T) {
 	expected := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"procstat",
 			map[string]string{
 				"exe":          "foo",
 				"process_name": "custom_name",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"child_major_faults":           uint64(0),
 				"child_minor_faults":           uint64(0),
 				"cmdline":                      "test_proc",
@@ -323,14 +322,14 @@ func TestGather_ProcessName(t *testing.T) {
 			time.Unix(0, 0),
 			telegraf.Untyped,
 		),
-		testutil.MustMetric(
+		metric.New(
 			"procstat_lookup",
 			map[string]string{
 				"exe":        "foo",
 				"pid_finder": "test",
 				"result":     "success",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"pid_count":   int64(1),
 				"result_code": int64(0),
 				"running":     int64(1),
@@ -397,7 +396,7 @@ func TestGather_NoPidTag(t *testing.T) {
 func TestGather_PidTag(t *testing.T) {
 	p := Procstat{
 		Exe:           exe,
-		PidTag:        true,
+		TagWith:       []string{"pid"},
 		PidFinder:     "test",
 		Properties:    []string{"cpu", "memory", "mmap"},
 		Log:           testutil.Logger{},
@@ -510,7 +509,7 @@ func TestGather_PercentFirstPass(t *testing.T) {
 
 	p := Procstat{
 		Pattern:       "foo",
-		PidTag:        true,
+		TagWith:       []string{"pid"},
 		PidFinder:     "test",
 		Properties:    []string{"cpu", "memory", "mmap"},
 		Log:           testutil.Logger{},
@@ -531,7 +530,7 @@ func TestGather_PercentSecondPass(t *testing.T) {
 
 	p := Procstat{
 		Pattern:       "foo",
-		PidTag:        true,
+		TagWith:       []string{"pid"},
 		PidFinder:     "test",
 		Properties:    []string{"cpu", "memory", "mmap"},
 		Log:           testutil.Logger{},
@@ -673,4 +672,114 @@ func TestGather_MoresupervisorUnitPIDs(t *testing.T) {
 			t.Fatalf("unexpected value for tag 'supervisor_unit': %q", pidsTag.Tags["supervisor_unit"])
 		}
 	}
+}
+
+func TestGather_MultipleFiltersMatchingSameProcess(t *testing.T) {
+	// This test verifies that when multiple filters match the same process (PID),
+	// each filter produces metrics with its own unique filter tag.
+	// This is a regression test for https://github.com/influxdata/telegraf/issues/18041
+	processID := pid(os.Getpid())
+	processName, err := gopsprocess.NewProcess(int32(processID))
+	require.NoError(t, err)
+	name, err := processName.Name()
+	require.NoError(t, err)
+
+	p := Procstat{
+		Properties: []string{"cpu", "memory", "mmap"},
+		Log:        testutil.Logger{},
+		Filter: []filter{
+			{
+				Name:         "filter_one",
+				ProcessNames: []string{"*" + name}, // Match current process
+			},
+			{
+				Name:         "filter_two",
+				ProcessNames: []string{"*" + name}, // Same pattern matches same process
+			},
+		},
+	}
+	require.NoError(t, p.Init())
+
+	var acc testutil.Accumulator
+	require.NoError(t, p.Gather(&acc))
+
+	// Collect all procstat metrics and their filter tags
+	filterTagsFound := make(map[string]int)
+	for _, m := range acc.GetTelegrafMetrics() {
+		if m.Name() == "procstat" {
+			filterTag, ok := m.GetTag("filter")
+			require.True(t, ok, "procstat metric should have a filter tag")
+			filterTagsFound[filterTag]++
+		}
+	}
+
+	// Verify that we got metrics from both filters with their respective tags
+	require.Contains(t, filterTagsFound, "filter_one", "should have metrics with filter=filter_one")
+	require.Contains(t, filterTagsFound, "filter_two", "should have metrics with filter=filter_two")
+
+	// Both filters should produce at least one metric for the matching process
+	require.GreaterOrEqual(t, filterTagsFound["filter_one"], 1, "filter_one should produce at least 1 metric")
+	require.GreaterOrEqual(t, filterTagsFound["filter_two"], 1, "filter_two should produce at least 1 metric")
+}
+
+func TestGather_MultipleFiltersProcessCacheIsolation(t *testing.T) {
+	// This test verifies that the process cache is correctly isolated per filter.
+	// Each filter should maintain its own process cache for CPU usage calculations.
+	// This is a regression test for https://github.com/influxdata/telegraf/issues/18041
+	processID := pid(os.Getpid())
+	processName, err := gopsprocess.NewProcess(int32(processID))
+	require.NoError(t, err)
+	name, err := processName.Name()
+	require.NoError(t, err)
+
+	p := Procstat{
+		Properties: []string{"cpu", "memory", "mmap"},
+		Log:        testutil.Logger{},
+		Filter: []filter{
+			{
+				Name:         "first",
+				ProcessNames: []string{"*" + name},
+			},
+			{
+				Name:         "second",
+				ProcessNames: []string{"*" + name},
+			},
+		},
+	}
+	require.NoError(t, p.Init())
+
+	// First gather - should create process entries for both filters
+	var acc1 testutil.Accumulator
+	require.NoError(t, p.Gather(&acc1))
+
+	// Verify process cache has entries for both filters
+	require.Contains(t, p.processes, "first", "process cache should have 'first' filter")
+	require.Contains(t, p.processes, "second", "process cache should have 'second' filter")
+
+	// Both filters should have the same PID in their cache
+	require.Contains(t, p.processes["first"], processID, "first filter should cache current process")
+	require.Contains(t, p.processes["second"], processID, "second filter should cache current process")
+
+	// The cached process objects should be different instances
+	proc1 := p.processes["first"][processID]
+	proc2 := p.processes["second"][processID]
+	require.NotSame(t, proc1, proc2, "each filter should have its own process instance")
+
+	// Second gather - should reuse cached processes for delta calculations
+	var acc2 testutil.Accumulator
+	require.NoError(t, p.Gather(&acc2))
+
+	// Count metrics per filter
+	filterCounts := make(map[string]int)
+	for _, m := range acc2.GetTelegrafMetrics() {
+		if m.Name() == "procstat" {
+			if filterTag, ok := m.GetTag("filter"); ok {
+				filterCounts[filterTag]++
+			}
+		}
+	}
+
+	// Both filters should still produce metrics
+	require.GreaterOrEqual(t, filterCounts["first"], 1, "first filter should produce metrics on second gather")
+	require.GreaterOrEqual(t, filterCounts["second"], 1, "second filter should produce metrics on second gather")
 }

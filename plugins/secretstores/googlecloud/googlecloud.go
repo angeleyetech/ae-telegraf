@@ -1,0 +1,103 @@
+//go:generate ../../../tools/readme_config_includer/generator
+package googlecloud
+
+import (
+	"context"
+	_ "embed"
+	"fmt"
+	"os"
+
+	"cloud.google.com/go/auth"
+	"cloud.google.com/go/auth/credentials"
+
+	"github.com/influxdata/telegraf"
+	common_gcp "github.com/influxdata/telegraf/plugins/common/gcp"
+	common_http "github.com/influxdata/telegraf/plugins/common/http"
+	"github.com/influxdata/telegraf/plugins/common/slog"
+	"github.com/influxdata/telegraf/plugins/secretstores"
+)
+
+//go:embed sample.conf
+var sampleConfig string
+
+func (*GoogleCloud) SampleConfig() string {
+	return sampleConfig
+}
+
+type GoogleCloud struct {
+	STSAudience     string          `toml:"sts_audience"`
+	CredentialsFile string          `toml:"credentials_file"`
+	Log             telegraf.Logger `toml:"-"`
+	common_http.HTTPClientConfig
+
+	credentials *auth.Credentials
+}
+
+func (g *GoogleCloud) Init() error {
+	client, err := g.HTTPClientConfig.CreateClient(context.Background(), g.Log)
+	if err != nil {
+		return fmt.Errorf("creating HTTP client failed: %w", err)
+	}
+
+	serviceAccount, err := os.ReadFile(g.CredentialsFile)
+	if err != nil {
+		return fmt.Errorf("cannot load the credential file: %w", err)
+	}
+
+	credType, err := common_gcp.ParseCredentialType(g.CredentialsFile)
+	if err != nil {
+		return fmt.Errorf("unable to parse credentials file type: %w", err)
+	}
+
+	// Default to cloud-platform scope for standard public-GCP service-account JSON keys.
+	// This covers all GCP APIs; actual permissions are still gated by IAM roles.
+	// GDCH/STS users continue to rely exclusively on sts_audience (Scopes is ignored).
+	if len(g.Scopes) == 0 && credType == "service_account" {
+		g.Scopes = []string{"https://www.googleapis.com/auth/cloud-platform"}
+	}
+
+	saType := credentials.CredType(credType)
+
+	creds, err := credentials.NewCredentialsFromJSON(saType, serviceAccount, &credentials.DetectOptions{
+		Scopes:      g.Scopes,
+		STSAudience: g.STSAudience,
+		Client:      client,
+		Logger:      slog.NewLogger(g.Log),
+	})
+	if err != nil {
+		return fmt.Errorf("credentials search failed: %w", err)
+	}
+	g.credentials = creds
+	return nil
+}
+
+// Get retrieves the token. The key is ignored as this secret store only provides one secret.
+func (g *GoogleCloud) Get(key string) ([]byte, error) {
+	if key != "token" {
+		return nil, fmt.Errorf("invalid key %q, only 'token' is supported", key)
+	}
+	token, err := g.credentials.Token(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("token retrieval failed: %w", err)
+	}
+	return []byte(token.Value), nil
+}
+
+// List returns the list of secrets provided by this store.
+func (*GoogleCloud) List() ([]string, error) {
+	return []string{"token"}, nil
+}
+
+// GetResolver returns a resolver function for the secret.
+func (g *GoogleCloud) GetResolver(key string) (telegraf.ResolveFunc, error) {
+	return func() ([]byte, bool, error) {
+		s, err := g.Get(key)
+		return s, true, err
+	}, nil
+}
+
+func init() {
+	secretstores.Add("googlecloud", func(string) telegraf.SecretStore {
+		return &GoogleCloud{}
+	})
+}

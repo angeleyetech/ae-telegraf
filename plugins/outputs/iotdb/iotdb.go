@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
-	"github.com/influxdata/telegraf/internal/choice"
 	"github.com/influxdata/telegraf/plugins/outputs"
 )
 
@@ -48,7 +48,7 @@ type recordsWithTags struct {
 	// IoTDB Records basic data struct
 	DeviceIDList     []string
 	MeasurementsList [][]string
-	ValuesList       [][]interface{}
+	ValuesList       [][]any
 	DataTypesList    [][]client.TSDataType
 	TimestampList    []int64
 	// extra tags
@@ -64,13 +64,13 @@ func (s *IoTDB) Init() error {
 	if s.Timeout < 0 {
 		return errors.New("negative timeout")
 	}
-	if !choice.Contains(s.ConvertUint64To, []string{"int64", "int64_clip", "text"}) {
+	if !slices.Contains([]string{"int64", "int64_clip", "text"}, s.ConvertUint64To) {
 		return fmt.Errorf("unknown 'uint64_conversion' method %q", s.ConvertUint64To)
 	}
-	if !choice.Contains(s.TimeStampUnit, []string{"second", "millisecond", "microsecond", "nanosecond"}) {
+	if !slices.Contains([]string{"second", "millisecond", "microsecond", "nanosecond"}, s.TimeStampUnit) {
 		return fmt.Errorf("unknown 'timestamp_precision' method %q", s.TimeStampUnit)
 	}
-	if !choice.Contains(s.TreatTagsAs, []string{"fields", "device_id"}) {
+	if !slices.Contains([]string{"fields", "device_id"}, s.TreatTagsAs) {
 		return fmt.Errorf("unknown 'convert_tags_to' method %q", s.TreatTagsAs)
 	}
 
@@ -154,7 +154,7 @@ func (s *IoTDB) Write(metrics []telegraf.Metric) error {
 }
 
 // Find out data type of the value and return it's id in TSDataType, and convert it if necessary.
-func (s *IoTDB) getDataTypeAndValue(value interface{}) (client.TSDataType, interface{}) {
+func (s *IoTDB) getDataTypeAndValue(value any) (client.TSDataType, any) {
 	switch v := value.(type) {
 	case int32:
 		return client.INT32, v
@@ -208,18 +208,16 @@ func (s *IoTDB) convertMetricsToRecordsWithTags(metrics []telegraf.Metric) (*rec
 	timestampList := make([]int64, 0, len(metrics))
 	deviceidList := make([]string, 0, len(metrics))
 	measurementsList := make([][]string, 0, len(metrics))
-	valuesList := make([][]interface{}, 0, len(metrics))
+	valuesList := make([][]any, 0, len(metrics))
 	dataTypesList := make([][]client.TSDataType, 0, len(metrics))
 	tagsList := make([][]*telegraf.Tag, 0, len(metrics))
 
 	for _, metric := range metrics {
 		// write `metric` to the output sink here
-		var tags []*telegraf.Tag
-		tags = append(tags, metric.TagList()...)
 		// deal with basic parameter
-		var keys []string
-		var values []interface{}
-		var dataTypes []client.TSDataType
+		keys := make([]string, 0, len(metric.FieldList()))
+		values := make([]any, 0, len(metric.FieldList()))
+		dataTypes := make([]client.TSDataType, 0, len(metric.FieldList()))
 		for _, field := range metric.FieldList() {
 			datatype, value := s.getDataTypeAndValue(field.Value)
 			if datatype == client.UNKNOWN {
@@ -240,7 +238,7 @@ func (s *IoTDB) convertMetricsToRecordsWithTags(metrics []telegraf.Metric) (*rec
 		measurementsList = append(measurementsList, keys)
 		valuesList = append(valuesList, values)
 		dataTypesList = append(dataTypesList, dataTypes)
-		tagsList = append(tagsList, tags)
+		tagsList = append(tagsList, metric.TagList())
 	}
 	rwt := &recordsWithTags{
 		DeviceIDList:     deviceidList,
@@ -295,7 +293,8 @@ func (s *IoTDB) modifyRecordsWithTags(rwt *recordsWithTags) error {
 	case "device_id":
 		// method 2: treat Tag(Key:Value) as subtree of device id
 		for index, tags := range rwt.TagsList { // for each record
-			topic := []string{rwt.DeviceIDList[index]}
+			topic := make([]string, 0, len(tags)+1)
+			topic = append(topic, rwt.DeviceIDList[index])
 			for _, tag := range tags { // for each tag, append it's Value
 				tagValue, err := s.validateTag(tag.Value) // validates tag
 				if err != nil {
@@ -319,14 +318,13 @@ func (s *IoTDB) writeRecordsWithTags(rwt *recordsWithTags) error {
 		return err
 	}
 	// write to IoTDB server
-	status, err := s.session.InsertRecords(rwt.DeviceIDList, rwt.MeasurementsList,
-		rwt.DataTypesList, rwt.ValuesList, rwt.TimestampList)
-	if status != nil {
-		if verifyResult := client.VerifySuccess(status); verifyResult != nil {
-			s.Log.Debug(verifyResult)
-		}
-	}
-	return err
+	return s.session.InsertRecords(
+		rwt.DeviceIDList,
+		rwt.MeasurementsList,
+		rwt.DataTypesList,
+		rwt.ValuesList,
+		rwt.TimestampList,
+	)
 }
 
 func init() {

@@ -3,11 +3,11 @@
 package os
 
 import (
+	"slices"
 	"testing"
 
+	"github.com/99designs/keyring"
 	"github.com/stretchr/testify/require"
-
-	"github.com/influxdata/telegraf/internal/choice"
 )
 
 // In docker, access to the keyring is disabled by default see
@@ -55,7 +55,7 @@ func TestResolverInvalid(t *testing.T) {
 	testKey := "foobar secret key"
 	keys, err := plugin.List()
 	require.NoError(t, err)
-	for choice.Contains(testKey, keys) {
+	for slices.Contains(keys, testKey) {
 		testKey += "x"
 	}
 	// Get the resolver
@@ -81,9 +81,30 @@ func TestGetNonExisting(t *testing.T) {
 	testKey := "foobar secret key"
 	keys, err := plugin.List()
 	require.NoError(t, err)
-	for choice.Contains(testKey, keys) {
+	for slices.Contains(keys, testKey) {
 		testKey += "x"
 	}
 	_, err = plugin.Get(testKey)
 	require.EqualError(t, err, "The specified item could not be found in the keyring")
+}
+
+func TestRemoveNonExisting(t *testing.T) {
+	plugin := &OS{ID: "test"}
+
+	// In docker, access to the keyring is disabled by default
+	// see https://docs.docker.com/engine/security/seccomp/.
+	err := plugin.Init()
+	if err != nil && err.Error() == dockerErr {
+		t.Skip("Kernel keyring not available!")
+	}
+	require.NoError(t, err)
+
+	// Make sure the key does not exist and try to remove that key
+	testKey := "foobar secret key"
+	keys, err := plugin.List()
+	require.NoError(t, err)
+	for slices.Contains(keys, testKey) {
+		testKey += "x"
+	}
+	require.ErrorIs(t, plugin.Remove(testKey), keyring.ErrKeyNotFound)
 }

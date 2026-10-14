@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/go-connections/nat"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go/wait"
 
@@ -26,14 +26,14 @@ import (
 )
 
 type Log struct {
-	level  pgx.LogLevel
+	level  tracelog.LogLevel
 	format string
-	args   []interface{}
+	args   []any
 }
 
 func (l Log) String() string {
 	// We have to use Errorf() as Sprintf() doesn't allow usage of %w.
-	return fmt.Errorf("%s: "+l.format, append([]interface{}{l.level}, l.args...)...).Error()
+	return fmt.Errorf("%s: "+l.format, append([]any{l.level}, l.args...)...).Error()
 }
 
 // LogAccumulator is a log collector that satisfies telegraf.Logger.
@@ -41,7 +41,7 @@ type LogAccumulator struct {
 	logs      []Log
 	cond      *sync.Cond
 	tb        testing.TB
-	emitLevel pgx.LogLevel
+	emitLevel tracelog.LogLevel
 }
 
 func NewLogAccumulator(tb testing.TB) *LogAccumulator {
@@ -53,22 +53,22 @@ func NewLogAccumulator(tb testing.TB) *LogAccumulator {
 
 func (la *LogAccumulator) Level() telegraf.LogLevel {
 	switch la.emitLevel {
-	case pgx.LogLevelInfo:
+	case tracelog.LogLevelInfo:
 		return telegraf.Info
-	case pgx.LogLevelWarn:
+	case tracelog.LogLevelWarn:
 		return telegraf.Warn
-	case pgx.LogLevelError:
+	case tracelog.LogLevelError:
 		return telegraf.Error
-	case pgx.LogLevelNone:
+	case tracelog.LogLevelNone:
 		return telegraf.None
 	}
 	return telegraf.Debug
 }
 
 // Unused
-func (*LogAccumulator) AddAttribute(string, interface{}) {}
+func (*LogAccumulator) AddAttribute(string, any) {}
 
-func (la *LogAccumulator) append(level pgx.LogLevel, format string, args []interface{}) {
+func (la *LogAccumulator) append(level tracelog.LogLevel, format string, args []any) {
 	la.tb.Helper()
 
 	la.cond.L.Lock()
@@ -83,7 +83,7 @@ func (la *LogAccumulator) append(level pgx.LogLevel, format string, args []inter
 	la.cond.L.Unlock()
 }
 
-func (la *LogAccumulator) HasLevel(level pgx.LogLevel) bool {
+func (la *LogAccumulator) HasLevel(level tracelog.LogLevel) bool {
 	la.cond.L.Lock()
 	defer la.cond.L.Unlock()
 	for _, log := range la.logs {
@@ -132,7 +132,7 @@ func (la *LogAccumulator) WaitFor(f func(l Log) bool, waitCommit bool) {
 				} else if log.args[0] == "Exec" && data["sql"] == "rollback" {
 					// transaction aborted, start looking for another match
 					commitPid = 0
-				} else if log.level == pgx.LogLevelError {
+				} else if log.level == tracelog.LogLevelError {
 					commitPid = 0
 				}
 			}
@@ -173,54 +173,54 @@ func (la *LogAccumulator) Logs() []Log {
 	return la.logs[:]
 }
 
-func (la *LogAccumulator) Errorf(format string, args ...interface{}) {
+func (la *LogAccumulator) Errorf(format string, args ...any) {
 	la.tb.Helper()
-	la.append(pgx.LogLevelError, format, args)
+	la.append(tracelog.LogLevelError, format, args)
 }
 
-func (la *LogAccumulator) Error(args ...interface{}) {
+func (la *LogAccumulator) Error(args ...any) {
 	la.tb.Helper()
-	la.append(pgx.LogLevelError, "%v", args)
+	la.append(tracelog.LogLevelError, "%v", args)
 }
 
-func (la *LogAccumulator) Warnf(format string, args ...interface{}) {
+func (la *LogAccumulator) Warnf(format string, args ...any) {
 	la.tb.Helper()
-	la.append(pgx.LogLevelWarn, format, args)
+	la.append(tracelog.LogLevelWarn, format, args)
 }
 
-func (la *LogAccumulator) Warn(args ...interface{}) {
+func (la *LogAccumulator) Warn(args ...any) {
 	la.tb.Helper()
-	la.append(pgx.LogLevelWarn, "%v", args)
+	la.append(tracelog.LogLevelWarn, "%v", args)
 }
 
-func (la *LogAccumulator) Infof(format string, args ...interface{}) {
+func (la *LogAccumulator) Infof(format string, args ...any) {
 	la.tb.Helper()
-	la.append(pgx.LogLevelInfo, format, args)
+	la.append(tracelog.LogLevelInfo, format, args)
 }
 
-func (la *LogAccumulator) Info(args ...interface{}) {
+func (la *LogAccumulator) Info(args ...any) {
 	la.tb.Helper()
-	la.append(pgx.LogLevelInfo, "%v", args)
+	la.append(tracelog.LogLevelInfo, "%v", args)
 }
 
-func (la *LogAccumulator) Debugf(format string, args ...interface{}) {
+func (la *LogAccumulator) Debugf(format string, args ...any) {
 	la.tb.Helper()
-	la.append(pgx.LogLevelDebug, format, args)
+	la.append(tracelog.LogLevelDebug, format, args)
 }
 
-func (la *LogAccumulator) Debug(args ...interface{}) {
+func (la *LogAccumulator) Debug(args ...any) {
 	la.tb.Helper()
-	la.append(pgx.LogLevelDebug, "%v", args)
+	la.append(tracelog.LogLevelDebug, "%v", args)
 }
 
-func (la *LogAccumulator) Tracef(format string, args ...interface{}) {
+func (la *LogAccumulator) Tracef(format string, args ...any) {
 	la.tb.Helper()
-	la.append(pgx.LogLevelDebug, format, args)
+	la.append(tracelog.LogLevelDebug, format, args)
 }
 
-func (la *LogAccumulator) Trace(args ...interface{}) {
+func (la *LogAccumulator) Trace(args ...any) {
 	la.tb.Helper()
-	la.append(pgx.LogLevelDebug, "%v", args)
+	la.append(tracelog.LogLevelDebug, "%v", args)
 }
 
 var ctx = context.Background()
@@ -252,7 +252,7 @@ func newPostgresqlTest(tb testing.TB) (*PostgresqlTest, error) {
 			// the database comes up twice, once right away, then again a second
 			// time after the docker entrypoint starts configuration
 			wait.ForLog("database system is ready to accept connections").WithOccurrence(2),
-			wait.ForListeningPort(nat.Port(servicePort)),
+			wait.ForListeningPort(servicePort),
 		),
 	}
 	tb.Cleanup(container.Terminate)
@@ -330,7 +330,7 @@ func TestConnectionIssueAtStartup(t *testing.T) {
 			// the database comes up twice, once right away, then again a second
 			// time after the docker entrypoint starts configuration
 			wait.ForLog("database system is ready to accept connections").WithOccurrence(2),
-			wait.ForListeningPort(nat.Port(servicePort)),
+			wait.ForListeningPort(servicePort),
 		),
 	}
 	require.NoError(t, container.Start(), "failed to start container")
@@ -353,7 +353,7 @@ func TestConnectionIssueAtStartup(t *testing.T) {
 	plugin.Connection = dsn
 	plugin.Logger = testutil.Logger{}
 	plugin.LogLevel = "debug"
-	model := models.NewRunningOutput(
+	model, err := models.NewRunningOutput(
 		plugin,
 		&models.OutputConfig{
 			Name:                 "postgres",
@@ -361,6 +361,7 @@ func TestConnectionIssueAtStartup(t *testing.T) {
 		},
 		1000, 1000,
 	)
+	require.NoError(t, err)
 	require.NoError(t, model.Init())
 
 	// The connect call should succeed even though the table creation was not
@@ -385,13 +386,13 @@ func newMetric(
 	t *testing.T,
 	suffix string,
 	tags map[string]string,
-	fields map[string]interface{},
+	fields map[string]any,
 ) telegraf.Metric {
-	return testutil.MustMetric(t.Name()+suffix, tags, fields, time.Now())
+	return metric.New(t.Name()+suffix, tags, fields, time.Now())
 }
 
 type MSS = map[string]string
-type MSI = map[string]interface{}
+type MSI = map[string]any
 
 func dbTableDump(t *testing.T, db *pgxpool.Pool, suffix string) []MSI {
 	rows, err := db.Query(ctx, "SELECT * FROM "+pgx.Identifier{t.Name() + suffix}.Sanitize())
@@ -404,7 +405,7 @@ func dbTableDump(t *testing.T, db *pgxpool.Pool, suffix string) []MSI {
 		vals, err := rows.Values()
 		require.NoError(t, err)
 		for i, fd := range rows.FieldDescriptions() {
-			msi[string(fd.Name)] = vals[i]
+			msi[fd.Name] = vals[i]
 		}
 		dump = append(dump, msi)
 	}
@@ -629,7 +630,7 @@ func TestWriteIntegration_sequentialTempError(t *testing.T) {
 			pid := log.args[1].(MSI)["pid"].(uint32)
 
 			conf := p.db.Config().ConnConfig
-			conf.Logger = nil
+			conf.Tracer = nil
 			c, err := pgx.ConnectConfig(t.Context(), conf)
 			if err != nil {
 				t.Error(err)
@@ -682,7 +683,7 @@ func TestWriteIntegration_concurrentTempError(t *testing.T) {
 			pid := log.args[1].(MSI)["pid"].(uint32)
 
 			conf := p.db.Config().ConnConfig
-			conf.Logger = nil
+			conf.Tracer = nil
 			c, err := pgx.ConnectConfig(t.Context(), conf)
 			if err != nil {
 				t.Error(err)
@@ -729,7 +730,7 @@ func TestTimestampColumnNameIntegration(t *testing.T) {
 	require.NoError(t, p.Connect())
 
 	metrics := []telegraf.Metric{
-		metric.New(t.Name(), map[string]string{}, map[string]interface{}{"v": 42}, time.Unix(1691747345, 0)),
+		metric.New(t.Name(), map[string]string{}, map[string]any{"v": 42}, time.Unix(1691747345, 0)),
 	}
 	require.NoError(t, p.Write(metrics))
 
@@ -929,14 +930,14 @@ func TestStressConcurrencyIntegration(t *testing.T) {
 
 	pctl, err := newPostgresqlTest(t)
 	require.NoError(t, err)
-	pctl.Logger.emitLevel = pgx.LogLevelWarn
+	pctl.Logger.emitLevel = tracelog.LogLevelWarn
 	require.NoError(t, pctl.Connect())
 
-	for i := 0; i < loops; i++ {
+	for range loops {
 		var wgStart, wgDone sync.WaitGroup
 		wgStart.Add(concurrency)
 		wgDone.Add(concurrency)
-		for j := 0; j < concurrency; j++ {
+		for range concurrency {
 			go func() {
 				mShuf := make([]telegraf.Metric, len(metrics))
 				copy(mShuf, metrics)
@@ -948,7 +949,7 @@ func TestStressConcurrencyIntegration(t *testing.T) {
 				}
 
 				p.TagsAsForeignKeys = true
-				p.Logger.emitLevel = pgx.LogLevelWarn
+				p.Logger.emitLevel = tracelog.LogLevelWarn
 				p.dbConfig.MaxConns = int32(rand.Intn(3) + 1)
 				if err := p.Connect(); err != nil {
 					t.Error(err)
@@ -962,7 +963,7 @@ func TestStressConcurrencyIntegration(t *testing.T) {
 				if err := p.Close(); err != nil {
 					t.Error(err)
 				}
-				if p.Logger.HasLevel(pgx.LogLevelWarn) {
+				if p.Logger.HasLevel(tracelog.LogLevelWarn) {
 					t.Errorf("logger mustn't have a warning level")
 				}
 
@@ -993,7 +994,7 @@ func TestLongColumnNamesErrorIntegration(t *testing.T) {
 		metric.New(
 			t.Name(),
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"a_field_with_a_some_very_long_name_exceeding_the_column_name_limit_of_postgres_of_63": int64(0),
 				"value": 42,
 			},
@@ -1002,7 +1003,7 @@ func TestLongColumnNamesErrorIntegration(t *testing.T) {
 		metric.New(
 			t.Name(),
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"a_field_with_a_some_very_long_name_exceeding_the_column_name_limit_of_postgres_of_63": int64(1),
 				"value": 43,
 			},
@@ -1011,7 +1012,7 @@ func TestLongColumnNamesErrorIntegration(t *testing.T) {
 		metric.New(
 			t.Name(),
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"a_field_with_a_some_very_long_name_exceeding_the_column_name_limit_of_postgres_of_63": int64(2),
 				"value": 44,
 			},
@@ -1020,7 +1021,7 @@ func TestLongColumnNamesErrorIntegration(t *testing.T) {
 		metric.New(
 			t.Name(),
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"a_field_with_another_very_long_name_exceeding_the_column_name_limit_of_postgres_of_63": int64(99),
 				"value": 45,
 			},
@@ -1035,7 +1036,7 @@ func TestLongColumnNamesErrorIntegration(t *testing.T) {
 	var longColLogErrs []string
 	for _, l := range p.Logger.logs {
 		msg := l.String()
-		if l.level == pgx.LogLevelError && strings.Contains(msg, "Column name too long") {
+		if l.level == tracelog.LogLevelError && strings.Contains(msg, "Column name too long") {
 			longColLogErrs = append(longColLogErrs, strings.TrimPrefix(msg, "error: Column name too long: "))
 		}
 	}
@@ -1046,7 +1047,7 @@ func TestLongColumnNamesErrorIntegration(t *testing.T) {
 	require.ElementsMatch(t, excpectedLongColumns, longColLogErrs)
 
 	// Denote the expected data in the table
-	expected := []map[string]interface{}{
+	expected := []map[string]any{
 		{"time": time.Unix(0, 0).Unix(), "value": int64(42)},
 		{"time": time.Unix(0, 1).Unix(), "value": int64(43)},
 		{"time": time.Unix(0, 2).Unix(), "value": int64(44)},
@@ -1088,7 +1089,7 @@ func TestLongColumnNamesClipIntegration(t *testing.T) {
 		metric.New(
 			t.Name(),
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"a_field_with_a_some_very_long_name_exceeding_the_column_name_limit_of_postgres_of_63": int64(0),
 				"value": 42,
 			},
@@ -1097,7 +1098,7 @@ func TestLongColumnNamesClipIntegration(t *testing.T) {
 		metric.New(
 			t.Name(),
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"a_field_with_a_some_very_long_name_exceeding_the_column_name_limit_of_postgres_of_63": int64(1),
 				"value": 43,
 			},
@@ -1106,7 +1107,7 @@ func TestLongColumnNamesClipIntegration(t *testing.T) {
 		metric.New(
 			t.Name(),
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"a_field_with_a_some_very_long_name_exceeding_the_column_name_limit_of_postgres_of_63": int64(2),
 				"value": 44,
 			},
@@ -1115,7 +1116,7 @@ func TestLongColumnNamesClipIntegration(t *testing.T) {
 		metric.New(
 			t.Name(),
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"a_field_with_another_very_long_name_exceeding_the_column_name_limit_of_postgres_of_63": int64(99),
 				"value": 45,
 			},
@@ -1130,11 +1131,11 @@ func TestLongColumnNamesClipIntegration(t *testing.T) {
 	var longColLogErrs []string
 	for _, l := range p.Logger.logs {
 		msg := l.String()
-		if l.level == pgx.LogLevelWarn && strings.Contains(msg, "Limiting too long column name") {
+		if l.level == tracelog.LogLevelWarn && strings.Contains(msg, "Limiting too long column name") {
 			longColLogWarns = append(longColLogWarns, strings.TrimPrefix(msg, "warn: Limiting too long column name: "))
 			continue
 		}
-		if l.level == pgx.LogLevelError && strings.Contains(msg, "Column name too long") {
+		if l.level == tracelog.LogLevelError && strings.Contains(msg, "Column name too long") {
 			longColLogErrs = append(longColLogErrs, strings.TrimPrefix(msg, "error: Column name too long: "))
 			continue
 		}
@@ -1148,7 +1149,7 @@ func TestLongColumnNamesClipIntegration(t *testing.T) {
 	require.Empty(t, longColLogErrs)
 
 	// Denote the expected data in the table
-	expected := []map[string]interface{}{
+	expected := []map[string]any{
 		{
 			"time": time.Unix(0, 0).Unix(),
 			"a_field_with_a_some_very_long_name_exceeding_the_column_name_li": int64(0),

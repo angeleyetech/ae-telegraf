@@ -12,10 +12,9 @@ This plugin gathers status from [Hue Bridge][hue] devices using the
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -138,6 +137,10 @@ containing the persisted token.
     - `device` - The name of the device
   - fields
     - `on` (int) - 0: light is off 1: light is on
+    - `brightness` (float) - Brightness percentage (0-100)
+    - `color_temp` (int) - Color temperature in mireds
+    - `color_x` (float) - CIE xy color point X coordinate
+    - `color_y` (float) - CIE xy color point Y coordinate
 - `huebridge_temperature`
   - tags
     - `bridge_id` - The bridge id (this metrics has been queried from)

@@ -25,10 +25,9 @@ type of logs, metrics and time series data.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -58,7 +57,7 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
   # table_name = ""
 
   ## Creates tables and relevant mapping if set to true(default).
-  ## Skips table and mapping creation if set to false, this is useful for running Telegraf with the lowest possible permissions i.e. table ingestor role.
+  ## Skips table and mapping creation if set to false, this is useful for running Telegraf with the lowest possible permissions (table ingestor role).
   # create_tables = true
 
   ##  Ingestion method to use.
@@ -115,20 +114,20 @@ The corresponding table mapping would be like the following:
 .create-or-alter table ['table-name'] ingestion json mapping 'table-name_mapping' '[{"column":"fields", "Properties":{"Path":"$[\'fields\']"}},{"column":"name", "Properties":{"Path":"$[\'name\']"}},{"column":"tags", "Properties":{"Path":"$[\'tags\']"}},{"column":"timestamp", "Properties":{"Path":"$[\'timestamp\']"}}]'
 ```
 
-**Note**: This plugin will automatically create Azure Data Explorer tables and
-corresponding table mapping as per the above mentioned commands.
+> [!NOTE]
+> This plugin will automatically create Azure Data Explorer tables and
+> corresponding table mapping as per the above mentioned commands.
 
 ## Ingestion type
 
-**Note**:
-[Streaming ingestion](https://aka.ms/AAhlg6s)
-has to be enabled on ADX [configure the ADX cluster]
-in case of `managed` option.
-Refer the query below to check if streaming is enabled
+[Streaming ingestion][streaming] has to be enabled on ADX if using the `managed`
+ingestion type. Use the following query to check if streaming is enabled
 
 ```kql
 .show database <DB-Name> policy streamingingestion
 ```
+
+[streaming]: https://aka.ms/AAhlg6s
 
 ## Authentication
 
@@ -236,8 +235,8 @@ stored as dynamic data type, multiple ways to query this data-
   | distinct tostring(tags.database_name)
   ```
 
-  **Note** - This approach could have performance impact in case of large
-  volumes of data, use below mentioned approach for such cases.
+  This approach could have performance impact in case of large volumes of data,
+  use below mentioned approach for such cases.
 
 1. Use [Update
    policy](https://docs.microsoft.com/en-us/azure/data-explorer/kusto/management/updatepolicy)**:
@@ -245,7 +244,7 @@ stored as dynamic data type, multiple ways to query this data-
    recommended performant way for querying over large volumes of data compared
    to querying directly over JSON attributes:
 
-  ```json
+  ```kql
   // Function to transform data
   .create-or-alter function Transform_TargetTableName() {
         SourceTableName

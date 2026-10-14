@@ -7,6 +7,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"regexp"
 	"sort"
@@ -53,7 +54,7 @@ type Statsd struct {
 
 	// Percentiles specifies the percentiles that will be calculated for timing
 	// and histogram stats.
-	Percentiles     []number `toml:"percentiles"`
+	Percentiles     []Number `toml:"percentiles"`
 	PercentileLimit int      `toml:"percentile_limit"`
 	DeleteGauges    bool     `toml:"delete_gauges"`
 	DeleteCounters  bool     `toml:"delete_counters"`
@@ -70,7 +71,7 @@ type Statsd struct {
 	MetricSeparator string `toml:"metric_separator"`
 
 	// Parses extensions to statsd in the datadog statsd format
-	// currently supports metrics and datadog tags.
+	// currently supports metrics, datadog tags, events, and service checks.
 	// http://docs.datadoghq.com/guides/dogstatsd/
 	DataDogExtensions bool `toml:"datadog_extensions"`
 
@@ -149,17 +150,20 @@ type internalStats struct {
 	MaxPendingMessages selfstat.Stat
 }
 
-// number will get parsed as an int or float depending on what is passed
-type number float64
+// Number will get parsed as an int or float depending on what is passed
+//
+// This type needs to be exported so that the plugin can be configured when not using the TOML config file.
+// i.e. It's being used as a library.
+type Number float64
 
 // UnmarshalTOML is a custom TOML unmarshalling function for the number type.
-func (n *number) UnmarshalTOML(b []byte) error {
+func (n *Number) UnmarshalTOML(b []byte) error {
 	value, err := strconv.ParseFloat(string(b), 64)
 	if err != nil {
 		return err
 	}
 
-	*n = number(value)
+	*n = Number(value)
 	return nil
 }
 
@@ -170,7 +174,7 @@ type input struct {
 }
 
 // One statsd metric, form is <bucket>:<value>|<mtype>|@<samplerate>
-type metric struct {
+type rawMetric struct {
 	name       string
 	field      string
 	bucket     string
@@ -193,14 +197,14 @@ type cachedset struct {
 
 type cachedgauge struct {
 	name      string
-	fields    map[string]interface{}
+	fields    map[string]any
 	tags      map[string]string
 	expiresAt time.Time
 }
 
 type cachedcounter struct {
 	name      string
-	fields    map[string]interface{}
+	fields    map[string]any
 	tags      map[string]string
 	expiresAt time.Time
 }
@@ -259,7 +263,7 @@ func (s *Statsd) Start(ac telegraf.Accumulator) error {
 	s.accept = make(chan bool, s.MaxTCPConnections)
 	s.conns = make(map[string]*net.TCPConn)
 	s.bufPool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return new(bytes.Buffer)
 		},
 	}
@@ -285,13 +289,11 @@ func (s *Statsd) Start(ac telegraf.Accumulator) error {
 		s.Log.Infof("UDP listening on %q", conn.LocalAddr().String())
 		s.UDPlistener = conn
 
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
+		s.wg.Go(func() {
 			if err := s.udpListen(conn); err != nil {
 				ac.AddError(err)
 			}
-		}()
+		})
 	} else {
 		address, err := net.ResolveTCPAddr("tcp", s.ServiceAddress)
 		if err != nil {
@@ -305,24 +307,20 @@ func (s *Statsd) Start(ac telegraf.Accumulator) error {
 		s.Log.Infof("TCP listening on %q", listener.Addr().String())
 		s.TCPlistener = listener
 
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
+		s.wg.Go(func() {
 			if err := s.tcpListen(listener); err != nil {
 				ac.AddError(err)
 			}
-		}()
+		})
 	}
 
 	for i := 1; i <= s.NumberWorkerThreads; i++ {
 		// Start the line parser
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
+		s.wg.Go(func() {
 			if err := s.parser(); err != nil {
 				ac.AddError(err)
 			}
-		}()
+		})
 	}
 	s.Log.Infof("Started the statsd service on %q", s.ServiceAddress)
 	return nil
@@ -334,7 +332,7 @@ func (s *Statsd) Gather(acc telegraf.Accumulator) error {
 	now := time.Now()
 
 	for _, m := range s.distributions {
-		fields := map[string]interface{}{
+		fields := map[string]any{
 			defaultFieldName: m.value,
 		}
 		if s.EnableAggregationTemporality {
@@ -348,7 +346,7 @@ func (s *Statsd) Gather(acc telegraf.Accumulator) error {
 		// Defining a template to parse field names for timers allows us to split
 		// out multiple fields per timer. In this case we prefix each stat with the
 		// field name and store these all in a single measurement.
-		fields := make(map[string]interface{})
+		fields := make(map[string]any)
 		for fieldName, stats := range m.fields {
 			var prefix string
 			if fieldName != defaultFieldName {
@@ -408,7 +406,7 @@ func (s *Statsd) Gather(acc telegraf.Accumulator) error {
 	}
 
 	for _, m := range s.sets {
-		fields := make(map[string]interface{})
+		fields := make(map[string]any)
 		for field, set := range m.fields {
 			if s.FloatSets {
 				fields[field] = float64(len(set))
@@ -449,8 +447,8 @@ func (s *Statsd) Stop() {
 		//  - get all conns from the s.conns map and put into slice
 		//  - this is so the forget() function doesnt conflict with looping
 		//    over the s.conns map
-		var conns []*net.TCPConn
 		s.cleanup.Lock()
+		conns := make([]*net.TCPConn, 0, len(s.conns))
 		for _, conn := range s.conns {
 			conns = append(conns, conn)
 		}
@@ -592,6 +590,11 @@ func (s *Statsd) parser() error {
 						s.Log.Errorf("Parsing line failed: %v", err)
 						s.Log.Debugf("  line was: %s", line)
 					}
+				case s.DataDogExtensions && strings.HasPrefix(line, "_sc|"):
+					if err := s.parseServiceCheckMessage(in.Time, line, in.Addr); err != nil {
+						s.Log.Errorf("Parsing line failed: %v", err)
+						s.Log.Debugf("  line was: %s", line)
+					}
 				default:
 					if err := s.parseStatsdLine(p, line); err != nil {
 						if !errors.Is(err, errParsing) {
@@ -619,8 +622,7 @@ func (s *Statsd) parseStatsdLine(p *graphite.Parser, line string) error {
 		// users.online:1|c|#sometagwithnovalue
 		// we will split on the pipe and remove any elements that are datadog
 		// tags, parse them, and rebuild the line sans the datadog tags
-		pipesplit := strings.Split(line, "|")
-		for _, segment := range pipesplit {
+		for segment := range strings.SplitSeq(line, "|") {
 			if len(segment) > 0 && segment[0] == '#' {
 				// we have ourselves a tag; they are comma separated
 				parseDataDogTags(lineTags, segment[1:])
@@ -648,7 +650,7 @@ func (s *Statsd) parseStatsdLine(p *graphite.Parser, line string) error {
 
 	// Add a metric for each bit available
 	for _, bit := range bits {
-		m := metric{}
+		m := rawMetric{}
 
 		m.bucket = bucketName
 
@@ -745,13 +747,11 @@ func (s *Statsd) parseStatsdLine(p *graphite.Parser, line string) error {
 			m.tags["metric_type"] = "distribution"
 		}
 		if len(lineTags) > 0 {
-			for k, v := range lineTags {
-				m.tags[k] = v
-			}
+			maps.Copy(m.tags, lineTags)
 		}
 
 		// Make a unique key for the measurement name/tags
-		var tg []string
+		tg := make([]string, 0, len(m.tags)+1)
 		for k, v := range m.tags {
 			tg = append(tg, k+"="+v)
 		}
@@ -834,7 +834,7 @@ func parseKeyValue(keyValue string) (key, val string) {
 // aggregate takes in a metric. It then
 // aggregates and caches the current value(s). It does not deal with the
 // Delete* options, because those are dealt with in the Gather function.
-func (s *Statsd) aggregate(m metric) {
+func (s *Statsd) aggregate(m rawMetric) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -882,7 +882,7 @@ func (s *Statsd) aggregate(m metric) {
 		if !ok {
 			cached = cachedcounter{
 				name:   m.name,
-				fields: make(map[string]interface{}),
+				fields: make(map[string]any),
 				tags:   m.tags,
 			}
 		}
@@ -900,7 +900,7 @@ func (s *Statsd) aggregate(m metric) {
 		if !ok {
 			cached = cachedgauge{
 				name:   m.name,
-				fields: make(map[string]interface{}),
+				fields: make(map[string]any),
 				tags:   m.tags,
 			}
 		}

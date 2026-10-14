@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -27,12 +28,12 @@ func TestIpsetEntries(t *testing.T) {
 	entries.commit(&acc)
 
 	expected := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"ipset",
 			map[string]string{
 				"set": "mylist",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"entries": 3,
 				"ips":     3,
 			},
@@ -67,24 +68,24 @@ func TestIpsetEntriesCidr(t *testing.T) {
 	entries.commit(&acc)
 
 	expected := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"ipset",
 			map[string]string{
 				"set": "mylist0",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"entries": 3,
 				"ips":     256,
 			},
 			time.Now().Add(time.Millisecond*0),
 			telegraf.Gauge,
 		),
-		testutil.MustMetric(
+		metric.New(
 			"ipset",
 			map[string]string{
 				"set": "mylist1",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"entries": 4,
 				"ips":     16777217,
 			},

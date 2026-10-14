@@ -5,7 +5,9 @@ import (
 	_ "embed"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/influxdata/telegraf"
@@ -72,14 +74,7 @@ func (t *TopK) Apply(in ...telegraf.Metric) []telegraf.Metric {
 		m.Accept()
 
 		// Check if the metric has any of the fields over which we are aggregating
-		hasField := false
-		for _, f := range t.Fields {
-			if m.HasField(f) {
-				hasField = true
-				break
-			}
-		}
-		if !hasField {
+		if !slices.ContainsFunc(t.Fields, m.HasField) {
 			continue
 		}
 
@@ -125,25 +120,33 @@ func (t *TopK) generateGroupByKey(m telegraf.Metric) (string, error) {
 		}
 	}
 
-	groupkey := m.Name() + "&"
+	var b strings.Builder
+	b.WriteString(m.Name())
+	b.WriteString("&")
 
 	if len(t.GroupBy) > 0 {
 		tags := m.Tags()
 		keys := make([]string, 0, len(tags))
+		var kb strings.Builder
 		for tag, value := range tags {
 			if t.tagsGlobs.Match(tag) {
-				keys = append(keys, tag+"="+value+"&")
+				kb.Reset()
+				kb.WriteString(tag)
+				kb.WriteString("=")
+				kb.WriteString(value)
+				kb.WriteString("&")
+				keys = append(keys, kb.String())
 			}
 		}
 		// Sorting the selected tags is necessary because dictionaries
 		// do not ensure any specific or deterministic ordering
 		sort.SliceStable(keys, func(i, j int) bool { return keys[i] < keys[j] })
 		for _, str := range keys {
-			groupkey += str
+			b.WriteString(str)
 		}
 	}
 
-	return groupkey, nil
+	return b.String(), nil
 }
 
 func (t *TopK) groupBy(m telegraf.Metric) {
@@ -170,7 +173,7 @@ func (t *TopK) groupBy(m telegraf.Metric) {
 	}
 }
 
-func convert(in interface{}) (float64, bool) {
+func convert(in any) (float64, bool) {
 	switch v := in.(type) {
 	case float64:
 		return v, true

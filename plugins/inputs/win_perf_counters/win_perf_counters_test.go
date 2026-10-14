@@ -37,7 +37,7 @@ func (m *testCounter) toCounterValue(raw bool) *counterValue {
 	if inst == "" {
 		inst = "--"
 	}
-	var val interface{}
+	var val any
 	if raw {
 		val = int64(m.value)
 	} else {
@@ -92,7 +92,7 @@ func (m *fakePerformanceQuery) getCounterPath(counterHandle pdhCounterHandle) (s
 			return counter.path, nil
 		}
 	}
-	return "", fmt.Errorf("in getCounterPath: invalid handle: %q", counterHandle)
+	return "", fmt.Errorf("in getCounterPath: invalid handle: %v", counterHandle)
 }
 
 func (m *fakePerformanceQuery) expandWildCardPath(counterPath string) ([]string, error) {
@@ -114,7 +114,7 @@ func (m *fakePerformanceQuery) getFormattedCounterValueDouble(counterHandle pdhC
 			return counter.value, nil
 		}
 	}
-	return 0, fmt.Errorf("in getFormattedCounterValueDouble: invalid handle: %q", counterHandle)
+	return 0, fmt.Errorf("in getFormattedCounterValueDouble: invalid handle: %v", counterHandle)
 }
 
 func (m *fakePerformanceQuery) getRawCounterValue(counterHandle pdhCounterHandle) (int64, error) {
@@ -129,7 +129,7 @@ func (m *fakePerformanceQuery) getRawCounterValue(counterHandle pdhCounterHandle
 			return int64(counter.value), nil
 		}
 	}
-	return 0, fmt.Errorf("in getRawCounterValue: invalid handle: %q", counterHandle)
+	return 0, fmt.Errorf("in getRawCounterValue: invalid handle: %v", counterHandle)
 }
 
 func (m *fakePerformanceQuery) findCounterByPath(counterPath string) *testCounter {
@@ -161,10 +161,10 @@ func (m *fakePerformanceQuery) getFormattedCounterArrayDouble(hCounter pdhCounte
 				}
 				return counters, nil
 			}
-			return nil, fmt.Errorf("in getFormattedCounterArrayDouble: invalid counter: %q", hCounter)
+			return nil, fmt.Errorf("in getFormattedCounterArrayDouble: invalid counter: %v", hCounter)
 		}
 	}
-	return nil, fmt.Errorf("in getFormattedCounterArrayDouble: invalid counter: %q, no paths found", hCounter)
+	return nil, fmt.Errorf("in getFormattedCounterArrayDouble: invalid counter: %v, no paths found", hCounter)
 }
 
 func (m *fakePerformanceQuery) getRawCounterArray(hCounter pdhCounterHandle) ([]counterValue, error) {
@@ -187,10 +187,10 @@ func (m *fakePerformanceQuery) getRawCounterArray(hCounter pdhCounterHandle) ([]
 				}
 				return counters, nil
 			}
-			return nil, fmt.Errorf("in getRawCounterArray: invalid counter: %q", hCounter)
+			return nil, fmt.Errorf("in getRawCounterArray: invalid counter: %v", hCounter)
 		}
 	}
-	return nil, fmt.Errorf("in getRawCounterArray: invalid counter: %q, no paths found", hCounter)
+	return nil, fmt.Errorf("in getRawCounterArray: invalid counter: %v, no paths found", hCounter)
 }
 
 func (m *fakePerformanceQuery) collectData() error {
@@ -427,8 +427,11 @@ func TestParseConfigMultiComps(t *testing.T) {
 		createPerfObject("", "m", "O1", []string{"I1", "I2"}, []string{"C1", "C2"}, false, false, false)[0],
 		createPerfObject("", "m", "O2", []string{"I"}, []string{"C1", "C2", "C3"}, false, false, false)[0],
 	}
+	//nolint:prealloc // Do not want this to share the underlying array after appending
 	cps11 := []string{"\\O(I)\\C"}
+	//nolint:prealloc // Do not want this to share the underlying array after appending
 	cps12 := []string{"\\\\cmp1\\O(I)\\C"}
+	//nolint:prealloc // Do not want this to share the underlying array after appending
 	cps13 := []string{"\\\\cmp2\\O(I)\\C"}
 	cps21 := []string{"\\O1(I1)\\C1", "\\O1(I1)\\C2", "\\O1(I2)\\C1", "\\O1(I2)\\C2"}
 	cps22 := []string{"\\\\cmp1\\O1(I1)\\C1", "\\\\cmp1\\O1(I1)\\C2", "\\\\cmp1\\O1(I2)\\C1", "\\\\cmp1\\O1(I2)\\C2"}
@@ -816,6 +819,7 @@ func TestParseConfigMultiCompsOverrideOnePerfObject(t *testing.T) {
 		FailOnMissing: false,
 		IncludeTotal:  false,
 	}
+	//nolint:prealloc // Do not want this to share the underlying array after appending
 	cps11 := []string{"\\\\cmp1\\O(I1)\\C1", "\\\\cmp1\\O(I1)\\C2", "\\\\cmp1\\O(I2)\\C1", "\\\\cmp1\\O(I2)\\C2"}
 	cps12 := []string{"\\\\cmp2\\O(I1)\\C1", "\\\\cmp2\\O(I1)\\C2", "\\\\cmp2\\O(I2)\\C1", "\\\\cmp2\\O(I2)\\C2"}
 	cps21 := []string{"\\O1(I)\\C"}
@@ -1161,6 +1165,7 @@ func TestParseConfigTotalExpansion(t *testing.T) {
 func TestParseConfigExpand(t *testing.T) {
 	var err error
 	perfObjects := createPerfObject("", "m", "O", []string{"*"}, []string{"*"}, false, false, false)
+	//nolint:prealloc // Do not want this to share the underlying array after appending
 	cps1 := []string{"\\O(I1)\\C1", "\\O(I1)\\C2", "\\O(I2)\\C1", "\\O(I2)\\C2"}
 	m := WinPerfCounters{
 		Log:                   testutil.Logger{},
@@ -1215,7 +1220,7 @@ func TestSimpleGather(t *testing.T) {
 	err = m.Gather(&acc1)
 	require.NoError(t, err)
 
-	fields1 := map[string]interface{}{
+	fields1 := map[string]any{
 		"C": 1.2,
 	}
 	tags1 := map[string]string{
@@ -1268,7 +1273,7 @@ func TestSimpleGatherNoData(t *testing.T) {
 	require.NoError(t, err)
 
 	// fields would contain if the error was ignored, and we simply added garbage
-	fields1 := map[string]interface{}{
+	fields1 := map[string]any{
 		"C": 1.2,
 	}
 	// tags would contain if the error was ignored, and we simply added garbage
@@ -1321,7 +1326,7 @@ func TestSimpleGatherWithTimestamp(t *testing.T) {
 	err = m.Gather(&acc1)
 	require.NoError(t, err)
 
-	fields1 := map[string]interface{}{
+	fields1 := map[string]any{
 		"C": 1.2,
 	}
 	tags1 := map[string]string{
@@ -1407,7 +1412,7 @@ func TestGatherInvalidDataIgnore(t *testing.T) {
 	err = m.Gather(&acc1)
 	require.NoError(t, err)
 
-	fields1 := map[string]interface{}{
+	fields1 := map[string]any{
 		"C1": 1.2,
 		"C3": float64(0),
 	}
@@ -1439,6 +1444,7 @@ func TestGatherRefreshingWithExpansion(t *testing.T) {
 	}
 	measurement := "test"
 	perfObjects := createPerfObject("", measurement, "O", []string{"*"}, []string{"*"}, true, false, false)
+	//nolint:prealloc // Do not want this to share the underlying array after appending
 	cps1 := []string{"\\O(I1)\\C1", "\\O(I1)\\C2", "\\O(I2)\\C1", "\\O(I2)\\C2"}
 	fpm := &fakePerformanceQuery{
 		counters: createCounterMap(append(cps1, "\\O(*)\\*"), []float64{1.1, 1.2, 1.3, 1.4, 0}, []uint32{0, 0, 0, 0, 0}),
@@ -1468,7 +1474,7 @@ func TestGatherRefreshingWithExpansion(t *testing.T) {
 
 	require.Len(t, acc1.Metrics, 2)
 
-	fields1 := map[string]interface{}{
+	fields1 := map[string]any{
 		"C1": 1.1,
 		"C2": 1.2,
 	}
@@ -1479,7 +1485,7 @@ func TestGatherRefreshingWithExpansion(t *testing.T) {
 	}
 	acc1.AssertContainsTaggedFields(t, measurement, fields1, tags1)
 
-	fields2 := map[string]interface{}{
+	fields2 := map[string]any{
 		"C1": 1.3,
 		"C2": 1.4,
 	}
@@ -1490,6 +1496,7 @@ func TestGatherRefreshingWithExpansion(t *testing.T) {
 	}
 	acc1.AssertContainsTaggedFields(t, measurement, fields2, tags2)
 
+	//nolint:prealloc // Do not want this to share the underlying array after appending
 	cps2 := []string{"\\O(I1)\\C1", "\\O(I1)\\C2", "\\O(I2)\\C1", "\\O(I2)\\C2", "\\O(I3)\\C1", "\\O(I3)\\C2"}
 	fpm = &fakePerformanceQuery{
 		counters: createCounterMap(append(cps2, "\\O(*)\\*"), []float64{1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 0}, []uint32{0, 0, 0, 0, 0, 0, 0}),
@@ -1504,7 +1511,7 @@ func TestGatherRefreshingWithExpansion(t *testing.T) {
 	}
 	var acc2 testutil.Accumulator
 
-	fields3 := map[string]interface{}{
+	fields3 := map[string]any{
 		"C1": 1.5,
 		"C2": 1.6,
 	}
@@ -1573,7 +1580,7 @@ func TestGatherRefreshingWithoutExpansion(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, acc1.Metrics, 2)
 
-	fields1 := map[string]interface{}{
+	fields1 := map[string]any{
 		"C1": 1.1,
 		"C2": 1.2,
 	}
@@ -1584,7 +1591,7 @@ func TestGatherRefreshingWithoutExpansion(t *testing.T) {
 	}
 	acc1.AssertContainsTaggedFields(t, measurement, fields1, tags1)
 
-	fields2 := map[string]interface{}{
+	fields2 := map[string]any{
 		"C1": 1.3,
 		"C2": 1.4,
 	}
@@ -1618,7 +1625,7 @@ func TestGatherRefreshingWithoutExpansion(t *testing.T) {
 
 	var acc2 testutil.Accumulator
 
-	fields3 := map[string]interface{}{
+	fields3 := map[string]any{
 		"C1": 1.5,
 		"C2": 1.6,
 	}
@@ -1670,7 +1677,7 @@ func TestGatherRefreshingWithoutExpansion(t *testing.T) {
 	err = m.Gather(&acc3)
 	require.NoError(t, err)
 	require.Len(t, acc3.Metrics, 2)
-	fields4 := map[string]interface{}{
+	fields4 := map[string]any{
 		"C1": 1.1,
 		"C2": 1.2,
 		"C3": 1.3,
@@ -1680,7 +1687,7 @@ func TestGatherRefreshingWithoutExpansion(t *testing.T) {
 		"objectname": "O",
 		"source":     hostname(),
 	}
-	fields5 := map[string]interface{}{
+	fields5 := map[string]any{
 		"C1": 1.4,
 		"C2": 1.5,
 		"C3": 1.6,
@@ -1732,7 +1739,7 @@ func TestGatherTotalNoExpansion(t *testing.T) {
 	require.True(t, ok)
 	require.Len(t, counters.counters, 2)
 	require.Len(t, acc1.Metrics, 2)
-	fields1 := map[string]interface{}{
+	fields1 := map[string]any{
 		"C1": 1.1,
 		"C2": 1.2,
 	}
@@ -1743,7 +1750,7 @@ func TestGatherTotalNoExpansion(t *testing.T) {
 	}
 	acc1.AssertContainsTaggedFields(t, measurement, fields1, tags1)
 
-	fields2 := map[string]interface{}{
+	fields2 := map[string]any{
 		"C1": 1.3,
 		"C2": 1.4,
 	}
@@ -1833,7 +1840,7 @@ func TestGatherMultiComps(t *testing.T) {
 	err = m.Gather(&acc)
 	require.NoError(t, err)
 	require.Len(t, acc.Metrics, 6)
-	fields1 := map[string]interface{}{
+	fields1 := map[string]any{
 		"C1": 1.1,
 		"C2": 1.2,
 	}
@@ -1842,7 +1849,7 @@ func TestGatherMultiComps(t *testing.T) {
 		"objectname": "O",
 		"source":     hostname(),
 	}
-	fields2 := map[string]interface{}{
+	fields2 := map[string]any{
 		"C1": 1.3,
 		"C2": 1.4,
 	}
@@ -1853,7 +1860,7 @@ func TestGatherMultiComps(t *testing.T) {
 	}
 	acc.AssertContainsTaggedFields(t, "m", fields1, tags1)
 	acc.AssertContainsTaggedFields(t, "m", fields2, tags2)
-	fields3 := map[string]interface{}{
+	fields3 := map[string]any{
 		"C1": 2.1,
 		"C2": 2.2,
 	}
@@ -1862,7 +1869,7 @@ func TestGatherMultiComps(t *testing.T) {
 		"objectname": "O",
 		"source":     "cmp1",
 	}
-	fields4 := map[string]interface{}{
+	fields4 := map[string]any{
 		"C1": 2.3,
 		"C2": 2.4,
 	}
@@ -1873,7 +1880,7 @@ func TestGatherMultiComps(t *testing.T) {
 	}
 	acc.AssertContainsTaggedFields(t, "m1", fields3, tags3)
 	acc.AssertContainsTaggedFields(t, "m1", fields4, tags4)
-	fields5 := map[string]interface{}{
+	fields5 := map[string]any{
 		"C1": 3.1,
 		"C2": 3.2,
 	}
@@ -1882,7 +1889,7 @@ func TestGatherMultiComps(t *testing.T) {
 		"objectname": "O",
 		"source":     "cmp2",
 	}
-	fields6 := map[string]interface{}{
+	fields6 := map[string]any{
 		"C1": 3.3,
 		"C2": 3.4,
 	}
@@ -1930,7 +1937,7 @@ func TestGatherRaw(t *testing.T) {
 	require.True(t, ok)
 	require.Len(t, counters.counters, 2)
 	require.Len(t, acc1.Metrics, 2)
-	fields1 := map[string]interface{}{
+	fields1 := map[string]any{
 		"C1_Raw": int64(1),
 		"C2_Raw": int64(2),
 	}
@@ -1941,7 +1948,7 @@ func TestGatherRaw(t *testing.T) {
 	}
 	acc1.AssertContainsTaggedFields(t, measurement, fields1, tags1)
 
-	fields2 := map[string]interface{}{
+	fields2 := map[string]any{
 		"C1_Raw": int64(3),
 		"C2_Raw": int64(4),
 	}

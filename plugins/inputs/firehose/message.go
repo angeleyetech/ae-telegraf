@@ -57,7 +57,7 @@ func (m *message) authenticate(req *http.Request, expected config.Secret) error 
 
 func (m *message) decodeData(r *requestBody) ([][]byte, error) {
 	// Decode base64-encoded data and return them as a slice of byte slices
-	decodedData := make([][]byte, 0)
+	decodedData := make([][]byte, 0, len(r.Records))
 	for _, record := range r.Records {
 		data, err := base64.StdEncoding.DecodeString(record.EncodedData)
 		if err != nil {
@@ -77,7 +77,7 @@ func (m *message) extractTagsFromCommonAttributes(req *http.Request, tagkeys []s
 		return tags, nil
 	}
 
-	var params map[string]interface{}
+	var params map[string]any
 	if err := json.Unmarshal([]byte(h), &params); err != nil {
 		m.responseCode = http.StatusBadRequest
 		return nil, fmt.Errorf("decoding x-amz-firehose-common-attributes header failed: %w", err)
@@ -89,7 +89,7 @@ func (m *message) extractTagsFromCommonAttributes(req *http.Request, tagkeys []s
 		return nil, errors.New("commonAttributes not found in x-amz-firehose-common-attributes header")
 	}
 
-	attributes, ok := raw.(map[string]interface{})
+	attributes, ok := raw.(map[string]any)
 	if !ok {
 		m.responseCode = http.StatusBadRequest
 		return nil, errors.New("parse parameters data failed")

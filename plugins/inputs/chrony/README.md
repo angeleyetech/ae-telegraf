@@ -12,10 +12,9 @@ the meaning of the gathered fields please check the [chronyc manual][manual].
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -30,8 +29,8 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
   ## and "udp://[::1]:323".
   # server = ""
 
-  ## Timeout for establishing the connection
-  # timeout = "5s"
+  ## Timeout for establishing the connection and for each request/response
+  # timeout = "3s"
 
   ## Try to resolve received addresses to host-names via DNS lookups
   ## Disabled by default to avoid DNS queries especially for slow DNS servers.

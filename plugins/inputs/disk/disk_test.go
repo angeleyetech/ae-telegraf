@@ -14,13 +14,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/plugins/common/psutil"
+	"github.com/influxdata/telegraf/plugins/common/psutil/psutiltest"
 	"github.com/influxdata/telegraf/testutil"
 )
 
 func TestDiskUsage(t *testing.T) {
 	mck := &mock.Mock{}
-	mps := psutil.MockPSDisk{SystemPS: &psutil.SystemPS{PSDiskDeps: &psutil.MockDiskUsage{Mock: mck}}, Mock: mck}
+	mps := psutiltest.MockPSDisk{SystemPS: &psutil.SystemPS{PSDiskDeps: &psutiltest.MockDiskUsage{Mock: mck}}, Mock: mck}
 	defer mps.AssertExpectations(t)
 
 	var acc testutil.Accumulator
@@ -111,7 +113,7 @@ func TestDiskUsage(t *testing.T) {
 		"mode":   "ro",
 	}
 
-	fields1 := map[string]interface{}{
+	fields1 := map[string]any{
 		"total":               uint64(128),
 		"used":                uint64(100),
 		"free":                uint64(23),
@@ -121,7 +123,7 @@ func TestDiskUsage(t *testing.T) {
 		"used_percent":        float64(81.30081300813008),
 		"inodes_used_percent": float64(81.03727714748784),
 	}
-	fields2 := map[string]interface{}{
+	fields2 := map[string]any{
 		"total":               uint64(256),
 		"used":                uint64(200),
 		"free":                uint64(46),
@@ -131,7 +133,7 @@ func TestDiskUsage(t *testing.T) {
 		"used_percent":        float64(81.30081300813008),
 		"inodes_used_percent": float64(81.03727714748784),
 	}
-	fields3 := map[string]interface{}{
+	fields3 := map[string]any{
 		"total":               uint64(128),
 		"used":                uint64(100),
 		"free":                uint64(23),
@@ -170,7 +172,7 @@ func TestDiskUsageHostMountPrefix(t *testing.T) {
 		usageStats      []*disk.UsageStat
 		hostMountPrefix string
 		expectedTags    map[string]string
-		expectedFields  map[string]interface{}
+		expectedFields  map[string]any
 	}{
 		{
 			name: "no host mount prefix",
@@ -194,7 +196,7 @@ func TestDiskUsageHostMountPrefix(t *testing.T) {
 				"fstype": "ext4",
 				"mode":   "ro",
 			},
-			expectedFields: map[string]interface{}{
+			expectedFields: map[string]any{
 				"total":               uint64(42),
 				"used":                uint64(0),
 				"free":                uint64(0),
@@ -228,7 +230,7 @@ func TestDiskUsageHostMountPrefix(t *testing.T) {
 				"fstype": "ext4",
 				"mode":   "ro",
 			},
-			expectedFields: map[string]interface{}{
+			expectedFields: map[string]any{
 				"total":               uint64(42),
 				"used":                uint64(0),
 				"free":                uint64(0),
@@ -262,7 +264,73 @@ func TestDiskUsageHostMountPrefix(t *testing.T) {
 				"fstype": "ext4",
 				"mode":   "ro",
 			},
-			expectedFields: map[string]interface{}{
+			expectedFields: map[string]any{
+				"total":               uint64(42),
+				"used":                uint64(0),
+				"free":                uint64(0),
+				"inodes_total":        uint64(0),
+				"inodes_free":         uint64(0),
+				"inodes_used":         uint64(0),
+				"used_percent":        float64(0),
+				"inodes_used_percent": float64(0),
+			},
+		},
+		{
+			name: "virtual filesystem with none device",
+			partitionStats: []disk.PartitionStat{
+				{
+					Device:     "none",
+					Mountpoint: "/tmp",
+					Fstype:     "tmpfs",
+					Opts:       []string{"rw"},
+				},
+			},
+			usageStats: []*disk.UsageStat{
+				{
+					Path:  "/tmp",
+					Total: 42,
+				},
+			},
+			expectedTags: map[string]string{
+				"path":   fmt.Sprintf("%ctmp", os.PathSeparator),
+				"device": "tmpfs",
+				"fstype": "tmpfs",
+				"mode":   "rw",
+			},
+			expectedFields: map[string]any{
+				"total":               uint64(42),
+				"used":                uint64(0),
+				"free":                uint64(0),
+				"inodes_total":        uint64(0),
+				"inodes_free":         uint64(0),
+				"inodes_used":         uint64(0),
+				"used_percent":        float64(0),
+				"inodes_used_percent": float64(0),
+			},
+		},
+		{
+			name: "virtual filesystem with empty device",
+			partitionStats: []disk.PartitionStat{
+				{
+					Device:     "",
+					Mountpoint: "/sys",
+					Fstype:     "sysfs",
+					Opts:       []string{"ro"},
+				},
+			},
+			usageStats: []*disk.UsageStat{
+				{
+					Path:  "/sys",
+					Total: 42,
+				},
+			},
+			expectedTags: map[string]string{
+				"path":   fmt.Sprintf("%csys", os.PathSeparator),
+				"device": "sysfs",
+				"fstype": "sysfs",
+				"mode":   "ro",
+			},
+			expectedFields: map[string]any{
 				"total":               uint64(42),
 				"used":                uint64(0),
 				"free":                uint64(0),
@@ -278,7 +346,7 @@ func TestDiskUsageHostMountPrefix(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mck := &mock.Mock{}
-			mps := psutil.MockPSDisk{SystemPS: &psutil.SystemPS{PSDiskDeps: &psutil.MockDiskUsage{Mock: mck}}, Mock: mck}
+			mps := psutiltest.MockPSDisk{SystemPS: &psutil.SystemPS{PSDiskDeps: &psutiltest.MockDiskUsage{Mock: mck}}, Mock: mck}
 			defer mps.AssertExpectations(t)
 
 			var acc testutil.Accumulator
@@ -301,7 +369,7 @@ func TestDiskUsageHostMountPrefix(t *testing.T) {
 }
 
 func TestDiskStats(t *testing.T) {
-	var mps psutil.MockPS
+	var mps psutiltest.MockPS
 	defer mps.AssertExpectations(t)
 	var acc testutil.Accumulator
 	var err error
@@ -442,7 +510,7 @@ func TestDiskStats(t *testing.T) {
 		"mode":   "rw",
 	}
 
-	fields1 := map[string]interface{}{
+	fields1 := map[string]any{
 		"total":               uint64(128),
 		"used":                uint64(100),
 		"free":                uint64(23),
@@ -452,7 +520,7 @@ func TestDiskStats(t *testing.T) {
 		"used_percent":        float64(81.30081300813008),
 		"inodes_used_percent": float64(81.03727714748784),
 	}
-	fields2 := map[string]interface{}{
+	fields2 := map[string]any{
 		"total":               uint64(256),
 		"used":                uint64(200),
 		"free":                uint64(46),
@@ -506,7 +574,7 @@ func TestDiskUsageIssues(t *testing.T) {
 				InodesUsed:  2000,
 			},
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{
 						"device": "tmpfs",
@@ -514,7 +582,7 @@ func TestDiskUsageIssues(t *testing.T) {
 						"mode":   "rw",
 						"path":   "/tmp",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"total":               uint64(256),
 						"used":                uint64(200),
 						"free":                uint64(46),
@@ -527,7 +595,7 @@ func TestDiskUsageIssues(t *testing.T) {
 					time.Unix(0, 0),
 					telegraf.Gauge,
 				),
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{
 						"device": "nvme0n1p4",
@@ -535,7 +603,7 @@ func TestDiskUsageIssues(t *testing.T) {
 						"mode":   "rw",
 						"path":   "/",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"total":               uint64(256),
 						"used":                uint64(200),
 						"free":                uint64(46),
@@ -562,7 +630,7 @@ func TestDiskUsageIssues(t *testing.T) {
 				InodesUsed:  2000,
 			},
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{
 						"device": "sda1",
@@ -571,7 +639,7 @@ func TestDiskUsageIssues(t *testing.T) {
 						"mode":   "rw",
 						"path":   "/",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"total":               uint64(256),
 						"used":                uint64(200),
 						"free":                uint64(46),
@@ -584,7 +652,7 @@ func TestDiskUsageIssues(t *testing.T) {
 					time.Unix(0, 0),
 					telegraf.Gauge,
 				),
-				testutil.MustMetric(
+				metric.New(
 					"disk",
 					map[string]string{
 						"device": "sdb",
@@ -593,7 +661,7 @@ func TestDiskUsageIssues(t *testing.T) {
 						"mode":   "rw",
 						"path":   "/mnt/storage",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"total":               uint64(256),
 						"used":                uint64(200),
 						"free":                uint64(46),
@@ -631,7 +699,7 @@ func TestDiskUsageIssues(t *testing.T) {
 
 			// Mock the disk usage
 			mck := &mock.Mock{}
-			mps := psutil.MockPSDisk{SystemPS: &psutil.SystemPS{PSDiskDeps: &psutil.MockDiskUsage{Mock: mck}}, Mock: mck}
+			mps := psutiltest.MockPSDisk{SystemPS: &psutil.SystemPS{PSDiskDeps: &psutiltest.MockDiskUsage{Mock: mck}}, Mock: mck}
 			defer mps.AssertExpectations(t)
 
 			mps.On("Partitions", true).Return(partitions, nil)

@@ -54,6 +54,11 @@ var (
 	// environment variable replacement behavior
 	OldEnvVarReplacement = false
 
+	// NonStrictEnvVarHandling allows to disable strict and safe environment
+	// variables handling. Strict handling cannot replace non-string settings
+	// so this option must be used in those use-cases.
+	NonStrictEnvVarHandling = false
+
 	// PrintPluginConfigSource is a switch to enable printing of plugin sources
 	PrintPluginConfigSource = false
 
@@ -83,6 +88,9 @@ type Config struct {
 	InputFilters       []string
 	OutputFilters      []string
 	SecretStoreFilters []string
+	// TestMode keeps output parsing in place while avoiding resources only
+	// needed when outputs are actually used.
+	TestMode bool
 
 	SecretStores      map[string]telegraf.SecretStore
 	secretStoreSource map[string][]string
@@ -288,6 +296,11 @@ type AgentConfig struct {
 	// this setting to true will skip the second run of processors.
 	SkipProcessorsAfterAggregators *bool `toml:"skip_processors_after_aggregators"`
 
+	// Flag to skip running processors before aggregators
+	// By default, processors are run a first time before aggregators. Changing
+	// this setting to true will skip the first run of processors.
+	SkipProcessorsBeforeAggregators bool `toml:"skip_processors_before_aggregators"`
+
 	// Number of attempts to obtain a remote configuration via a URL during
 	// startup. Set to -1 for unlimited attempts.
 	ConfigURLRetryAttempts int `toml:"config_url_retry_attempts"`
@@ -299,6 +312,12 @@ type AgentConfig struct {
 	// BufferDirectory is the directory to store buffer files for serialized
 	// to disk metrics when using the "disk_write_through" buffer strategy.
 	BufferDirectory string `toml:"buffer_directory"`
+
+	// BufferDiskSync controls writes durability when "disk" buffer strategy
+	// is used. No sync offers better write performance at the risk of losing
+	// metrics buffered in the last `flush_interval` in the event of a power
+	// cut.
+	BufferDiskSync *bool `toml:"buffer_disk_sync"`
 }
 
 // InputNames returns a list of strings of the configured inputs.
@@ -385,7 +404,7 @@ func (c *Config) OutputNamesWithSources() string {
 	return getPluginSourcesTable(plugins)
 }
 
-// SecretstoreNames returns a list of strings of the configured secret-stores.
+// SecretstoreNames returns a list of strings of the configured secret stores.
 func (c *Config) SecretstoreNames() []string {
 	names := make([]string, 0, len(c.SecretStores))
 	for name := range c.SecretStores {
@@ -442,20 +461,17 @@ func (c *Config) ListTags() string {
 	return strings.Join(tags, " ")
 }
 
-func sliceContains(name string, list []string) bool {
-	for _, b := range list {
-		if b == name {
-			return true
-		}
-	}
-	return false
-}
-
 // WalkDirectory collects all toml files that need to be loaded
 func WalkDirectory(path string) ([]string, error) {
+	// Check permissions of the directly specified directories and error
+	// out if those are not readable
+	if _, err := os.ReadDir(path); err != nil {
+		return nil, err
+	}
+
 	var files []string
-	walkfn := func(thispath string, info os.FileInfo, _ error) error {
-		if info == nil {
+	walkfn := func(thispath string, info os.FileInfo, err error) error {
+		if info == nil || errors.Is(err, os.ErrPermission) {
 			log.Printf("W! Telegraf is not permitted to read %s", thispath)
 			return nil
 		}
@@ -559,10 +575,20 @@ func (c *Config) LoadAll(configFiles ...string) error {
 		}
 	}
 
+	if c.Agent.SkipProcessorsBeforeAggregators && c.Agent.SkipProcessorsAfterAggregators != nil && *c.Agent.SkipProcessorsAfterAggregators {
+		return errors.New("cannot set both skip_processors_before_aggregators and skip_processors_after_aggregators as true")
+	}
+
 	// Sort the processors according to their `order` setting while
 	// using a stable sort to keep the file loading / file position order.
 	sort.Stable(c.Processors)
 	sort.Stable(c.AggProcessors)
+
+	// Without aggregators there is no second processor run, so skipping the
+	// first one would drop processing altogether
+	if c.Agent.SkipProcessorsBeforeAggregators && len(c.Aggregators) > 0 {
+		c.Processors = make(models.RunningProcessors, 0)
+	}
 
 	// Set snmp agent translator default
 	if c.Agent.SnmpTranslator == "" {
@@ -577,7 +603,7 @@ func (c *Config) LoadAll(configFiles ...string) error {
 	}
 	c.NumberSecrets = uint64(count)
 
-	// Let's link all secrets to their secret-stores
+	// Let's link all secrets to their secret stores
 	return c.LinkSecrets()
 }
 
@@ -628,6 +654,9 @@ func (c *Config) LoadConfigData(data []byte, path string) error {
 		}
 		if err = c.toml.UnmarshalTable(subTable, c.Agent); err != nil {
 			return fmt.Errorf("error parsing [agent]: %w", err)
+		}
+		if c.Agent.CollectionOffset < 0 {
+			return fmt.Errorf("agent collection_offset must not be negative, found %v", c.Agent.CollectionOffset)
 		}
 	}
 
@@ -883,7 +912,9 @@ func fetchConfig(u *url.URL, urlRetryAttempts int) ([]byte, error) {
 		return nil, err
 	}
 
-	if v, exists := os.LookupEnv("INFLUX_TOKEN"); exists {
+	if v, exists := os.LookupEnv("TELEGRAF_CONTROLLER_TOKEN"); exists {
+		req.Header.Add("Authorization", "Bearer "+v)
+	} else if v, exists := os.LookupEnv("INFLUX_TOKEN"); exists {
 		req.Header.Add("Authorization", "Token "+v)
 	}
 	req.Header.Add("Accept", "application/toml")
@@ -947,11 +978,18 @@ func parseConfig(contents []byte) (*ast.Table, error) {
 	if err != nil {
 		return nil, err
 	}
-	outputBytes, err := substituteEnvironment(contents, OldEnvVarReplacement)
-	if err != nil {
-		return nil, err
+
+	// Use non-strict mode
+	if NonStrictEnvVarHandling {
+		output, err := substituteEnvironmentNonStrict(contents, OldEnvVarReplacement)
+		if err != nil {
+			return nil, err
+		}
+		return toml.Parse(output)
 	}
-	return toml.Parse(outputBytes)
+
+	// Use strict mode (default)
+	return substituteEnvironmentStrict(contents, OldEnvVarReplacement)
 }
 
 func (c *Config) addAggregator(name, source string, table *ast.Table) error {
@@ -992,7 +1030,7 @@ func (c *Config) addAggregator(name, source string, table *ast.Table) error {
 }
 
 func (c *Config) addSecretStore(name, source string, table *ast.Table) error {
-	if len(c.SecretStoreFilters) > 0 && !sliceContains(name, c.SecretStoreFilters) {
+	if len(c.SecretStoreFilters) > 0 && !slices.Contains(c.SecretStoreFilters, name) {
 		return nil
 	}
 
@@ -1006,10 +1044,10 @@ func (c *Config) addSecretStore(name, source string, table *ast.Table) error {
 
 	storeID := c.getFieldString(table, "id")
 	if storeID == "" {
-		return fmt.Errorf("%q secret-store without ID", name)
+		return fmt.Errorf("%q secret store without ID", name)
 	}
 	if !secretStorePattern.MatchString(storeID) {
-		return fmt.Errorf("invalid secret-store ID %q, must only contain letters, numbers or underscore", storeID)
+		return fmt.Errorf("invalid secret store ID %q, must only contain letters, numbers or underscore", storeID)
 	}
 
 	tags := map[string]string{
@@ -1041,7 +1079,7 @@ func (c *Config) addSecretStore(name, source string, table *ast.Table) error {
 	models.SetStatisticsOnPlugin(store, logger, tags)
 
 	if err := store.Init(); err != nil {
-		return fmt.Errorf("error initializing secret-store %q: %w", storeID, err)
+		return fmt.Errorf("error initializing secret store %q: %w", storeID, err)
 	}
 
 	if _, found := c.SecretStores[storeID]; found {
@@ -1063,7 +1101,7 @@ func (c *Config) LinkSecrets() error {
 			storeID, key := splitLink(ref)
 			store, found := c.SecretStores[storeID]
 			if !found {
-				return fmt.Errorf("unknown secret-store for %q", ref)
+				return fmt.Errorf("unknown secret store for %q", ref)
 			}
 			resolver, err := store.GetResolver(key)
 			if err != nil {
@@ -1254,7 +1292,7 @@ func (c *Config) setupProcessor(name string, creator processors.StreamingCreator
 
 	streamingProcessor := creator()
 
-	var processor interface{}
+	var processor any
 	if p, ok := streamingProcessor.(processors.HasUnwrap); ok {
 		processor = p.Unwrap()
 	} else {
@@ -1312,7 +1350,7 @@ func (c *Config) setupProcessor(name string, creator processors.StreamingCreator
 }
 
 func (c *Config) addOutput(name, source string, table *ast.Table) error {
-	if len(c.OutputFilters) > 0 && !sliceContains(name, c.OutputFilters) {
+	if len(c.OutputFilters) > 0 && !slices.Contains(c.OutputFilters, name) {
 		return nil
 	}
 
@@ -1380,7 +1418,7 @@ func (c *Config) addOutput(name, source string, table *ast.Table) error {
 		return err
 	}
 
-	if c, ok := interface{}(output).(interface{ TLSConfig() (*tls.Config, error) }); ok {
+	if c, ok := any(output).(interface{ TLSConfig() (*tls.Config, error) }); ok {
 		if _, err := c.TLSConfig(); err != nil {
 			return err
 		}
@@ -1396,14 +1434,17 @@ func (c *Config) addOutput(name, source string, table *ast.Table) error {
 		}
 	}
 
-	ro := models.NewRunningOutput(output, outputConfig, c.Agent.MetricBatchSize, c.Agent.MetricBufferLimit)
+	ro, err := models.NewRunningOutput(output, outputConfig, c.Agent.MetricBatchSize, c.Agent.MetricBufferLimit)
+	if err != nil {
+		return err
+	}
 	c.Outputs = append(c.Outputs, ro)
 
 	return nil
 }
 
 func (c *Config) addInput(name, source string, table *ast.Table) error {
-	if len(c.InputFilters) > 0 && !sliceContains(name, c.InputFilters) {
+	if len(c.InputFilters) > 0 && !slices.Contains(c.InputFilters, name) {
 		return nil
 	}
 
@@ -1472,7 +1513,7 @@ func (c *Config) addInput(name, source string, table *ast.Table) error {
 		return err
 	}
 
-	if c, ok := interface{}(input).(interface{ TLSConfig() (*tls.Config, error) }); ok {
+	if c, ok := any(input).(interface{ TLSConfig() (*tls.Config, error) }); ok {
 		if _, err := c.TLSConfig(); err != nil {
 			return err
 		}
@@ -1669,8 +1710,11 @@ func (c *Config) buildInput(name, source string, tbl *ast.Table) (*models.InputC
 	}
 	cp.Interval, _ = c.getFieldDuration(tbl, "interval")
 	cp.Precision, _ = c.getFieldDuration(tbl, "precision")
-	cp.CollectionJitter, _ = c.getFieldDuration(tbl, "collection_jitter")
+	cp.CollectionJitter, cp.CollectionJitterSet = c.getFieldDuration(tbl, "collection_jitter")
 	cp.CollectionOffset, _ = c.getFieldDuration(tbl, "collection_offset")
+	if cp.CollectionOffset < 0 {
+		return nil, fmt.Errorf("negative collection_offset %q is not allowed", cp.CollectionOffset)
+	}
 	cp.StartupErrorBehavior = c.getFieldString(tbl, "startup_error_behavior")
 	cp.TimeSource = c.getFieldString(tbl, "time_source")
 
@@ -1718,12 +1762,18 @@ func (c *Config) buildOutput(name, source string, tbl *ast.Table) (*models.Outpu
 	if bufferStrategy == "disk" {
 		bufferStrategy = "disk_write_through"
 	}
+	bufferDiskSync := true
+	if c.Agent.BufferDiskSync != nil {
+		bufferDiskSync = *c.Agent.BufferDiskSync
+	}
+
 	oc := &models.OutputConfig{
 		Name:            name,
 		Source:          source,
 		Filter:          filter,
 		BufferStrategy:  bufferStrategy,
 		BufferDirectory: c.Agent.BufferDirectory,
+		BufferDiskSync:  bufferDiskSync,
 	}
 
 	// TODO: support FieldPass/FieldDrop on outputs
@@ -1743,7 +1793,12 @@ func (c *Config) buildOutput(name, source string, tbl *ast.Table) (*models.Outpu
 		return nil, c.firstErr()
 	}
 
-	if oc.BufferStrategy == "disk_write_through" {
+	if err := models.CheckBufferSettings(oc.BufferStrategy); err != nil {
+		return nil, err
+	}
+	if c.TestMode {
+		oc.BufferStrategy = "discard"
+	} else if oc.BufferStrategy == "disk_write_through" {
 		log.Printf("W! Using disk-write-through buffer strategy for plugin outputs.%s, this is an experimental feature", name)
 	}
 
@@ -1756,7 +1811,7 @@ func (c *Config) missingTomlField(_ reflect.Type, key string) error {
 	switch key {
 	// General options to ignore
 	case "alias", "always_include_local_tags",
-		"buffer_strategy", "buffer_directory",
+		"buffer_strategy", "buffer_directory", "buffer_disk_sync",
 		"collection_jitter", "collection_offset",
 		"data_format", "delay", "drop", "drop_original",
 		"fielddrop", "fieldexclude", "fieldinclude", "fieldpass", "flush_interval", "flush_jitter",
@@ -1769,7 +1824,7 @@ func (c *Config) missingTomlField(_ reflect.Type, key string) error {
 		"pass", "period", "precision",
 		"tagdrop", "tagexclude", "taginclude", "tagpass", "tags", "startup_error_behavior", "labels":
 
-	// Secret-store options to ignore
+	// secret store options to ignore
 	case "id":
 
 	// Parser and serializer options to ignore
@@ -1791,14 +1846,14 @@ func (c *Config) setLocalMissingTomlFieldTracker(counter map[string]int) {
 		// should just be hit once anyway. Therefore, we mark them with a
 		// high number to handle them correctly later.
 		pt := reflect.PointerTo(t)
-		root := pt.Implements(reflect.TypeOf((*telegraf.Input)(nil)).Elem())
-		root = root || pt.Implements(reflect.TypeOf((*telegraf.ServiceInput)(nil)).Elem())
-		root = root || pt.Implements(reflect.TypeOf((*telegraf.Output)(nil)).Elem())
-		root = root || pt.Implements(reflect.TypeOf((*telegraf.Aggregator)(nil)).Elem())
-		root = root || pt.Implements(reflect.TypeOf((*telegraf.Processor)(nil)).Elem())
-		root = root || pt.Implements(reflect.TypeOf((*telegraf.StreamingProcessor)(nil)).Elem())
-		root = root || pt.Implements(reflect.TypeOf((*telegraf.Parser)(nil)).Elem())
-		root = root || pt.Implements(reflect.TypeOf((*telegraf.Serializer)(nil)).Elem())
+		root := pt.Implements(reflect.TypeFor[telegraf.Input]())
+		root = root || pt.Implements(reflect.TypeFor[telegraf.ServiceInput]())
+		root = root || pt.Implements(reflect.TypeFor[telegraf.Output]())
+		root = root || pt.Implements(reflect.TypeFor[telegraf.Aggregator]())
+		root = root || pt.Implements(reflect.TypeFor[telegraf.Processor]())
+		root = root || pt.Implements(reflect.TypeFor[telegraf.StreamingProcessor]())
+		root = root || pt.Implements(reflect.TypeFor[telegraf.Parser]())
+		root = root || pt.Implements(reflect.TypeFor[telegraf.Serializer]())
 
 		c, ok := counter[key]
 		if !root {
@@ -1932,24 +1987,33 @@ func (c *Config) getFieldStringSlice(tbl *ast.Table, fieldName string) []string 
 
 func (c *Config) getFieldTagFilter(tbl *ast.Table, fieldName string) []models.TagFilter {
 	var target []models.TagFilter
-	if node, ok := tbl.Fields[fieldName]; ok {
-		if subTbl, ok := node.(*ast.Table); ok {
-			for name, val := range subTbl.Fields {
-				if kv, ok := val.(*ast.KeyValue); ok {
-					ary, ok := kv.Value.(*ast.Array)
-					if !ok {
-						c.addError(tbl, fmt.Errorf("found unexpected format while parsing %q, expecting string array/slice format on each entry", fieldName))
-						return nil
-					}
 
-					tagFilter := models.TagFilter{Name: name}
-					for _, elem := range ary.Value {
-						if str, ok := elem.(*ast.String); ok {
-							tagFilter.Values = append(tagFilter.Values, str.Value)
-						}
-					}
-					target = append(target, tagFilter)
+	if node, ok := tbl.Fields[fieldName]; ok {
+		subTbl, ok := node.(*ast.Table)
+		if !ok {
+			c.addError(tbl, fmt.Errorf("invalid syntax for %q: expected a table of key=[values]", fieldName))
+			return nil
+		}
+
+		for name, val := range subTbl.Fields {
+			if kv, ok := val.(*ast.KeyValue); ok {
+				ary, ok := kv.Value.(*ast.Array)
+				if !ok {
+					c.addError(tbl, fmt.Errorf(
+						"found unexpected format while parsing %q, expecting string array/slice format on each entry",
+						fieldName,
+					))
+					return nil
 				}
+
+				tagFilter := models.TagFilter{Name: name}
+				for _, elem := range ary.Value {
+					if str, ok := elem.(*ast.String); ok {
+						tagFilter.Values = append(tagFilter.Values, str.Value)
+					}
+				}
+
+				target = append(target, tagFilter)
 			}
 		}
 	}
@@ -1978,7 +2042,7 @@ func (c *Config) matchesLabelSelection(tbl *ast.Table) (bool, error) {
 	// Get the label definitions for the plugin and check them
 	labels := c.getFieldMap(tbl, "labels")
 	for k, v := range labels {
-		if err := CheckSelectionKeyValuePairs(k, v); err != nil {
+		if err := CheckLabelKeyValuePairs(k, v); err != nil {
 			return false, err
 		}
 	}

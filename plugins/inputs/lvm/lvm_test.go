@@ -29,7 +29,7 @@ func TestGather(t *testing.T) {
 		"path":      "/dev/sdb",
 		"vol_group": "docker",
 	}
-	pvsFields := map[string]interface{}{
+	pvsFields := map[string]any{
 		"size":         uint64(128316342272),
 		"free":         uint64(3858759680),
 		"used":         uint64(124457582592),
@@ -40,7 +40,7 @@ func TestGather(t *testing.T) {
 	vgsTags := map[string]string{
 		"name": "docker",
 	}
-	vgsFields := map[string]interface{}{
+	vgsFields := map[string]any{
 		"size":                  uint64(128316342272),
 		"free":                  uint64(3858759680),
 		"used_percent":          96.99277612525741,
@@ -54,7 +54,7 @@ func TestGather(t *testing.T) {
 		"name":      "thinpool",
 		"vol_group": "docker",
 	}
-	lvsFields := map[string]interface{}{
+	lvsFields := map[string]any{
 		"size":             uint64(121899057152),
 		"data_percent":     0.36000001430511475,
 		"metadata_percent": 1.3300000429153442,
@@ -66,7 +66,7 @@ func TestGather(t *testing.T) {
 		"name":      "lv",
 		"vol_group": "vg",
 	}
-	lvsFields2 := map[string]interface{}{
+	lvsFields2 := map[string]any{
 		"size":             uint64(200000000000000),
 		"data_percent":     0.0,
 		"metadata_percent": 0.0,
@@ -77,7 +77,8 @@ func TestGather(t *testing.T) {
 
 // Used as a helper function that mock the exec.Command call
 func fakeExecCommand(command string, args ...string) *exec.Cmd {
-	cs := []string{"-test.run=TestHelperProcess", "--", command}
+	cs := make([]string, 0, len(args)+3)
+	cs = append(cs, "-test.run=TestHelperProcess", "--", command)
 	cs = append(cs, args...)
 	cmd := exec.Command(os.Args[0], cs...)
 	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
@@ -165,7 +166,8 @@ func TestGatherNoLVM(t *testing.T) {
 
 // Used as a helper function that mock the exec.Command call
 func fakeExecCommandNoLVM(command string, args ...string) *exec.Cmd {
-	cs := []string{"-test.run=TestHelperProcessNoLVM", "--", command}
+	cs := make([]string, 0, len(args)+3)
+	cs = append(cs, "-test.run=TestHelperProcessNoLVM", "--", command)
 	cs = append(cs, args...)
 	cmd := exec.Command(os.Args[0], cs...)
 	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}

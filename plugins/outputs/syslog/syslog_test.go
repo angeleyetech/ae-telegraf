@@ -34,7 +34,7 @@ func TestGetSyslogMessageWithFramingOctetCounting(t *testing.T) {
 		map[string]string{
 			"hostname": "testhost",
 		},
-		map[string]interface{}{},
+		map[string]any{},
 		time.Date(2010, time.November, 10, 23, 0, 0, 0, time.UTC),
 	)
 
@@ -59,7 +59,7 @@ func TestGetSyslogMessageWithFramingNonTransparent(t *testing.T) {
 		map[string]string{
 			"hostname": "testhost",
 		},
-		map[string]interface{}{},
+		map[string]any{},
 		time.Date(2010, time.November, 10, 23, 0, 0, 0, time.UTC),
 	)
 
@@ -85,7 +85,7 @@ func TestGetSyslogMessageWithFramingNonTransparentNul(t *testing.T) {
 		map[string]string{
 			"hostname": "testhost",
 		},
-		map[string]interface{}{},
+		map[string]any{},
 		time.Date(2010, time.November, 10, 23, 0, 0, 0, time.UTC),
 	)
 
@@ -132,7 +132,7 @@ func testSyslogWriteWithStream(t *testing.T, s *Syslog, lconn net.Conn) {
 	m1 := metric.New(
 		"testmetric",
 		map[string]string{},
-		map[string]interface{}{},
+		map[string]any{},
 		time.Date(2010, time.November, 10, 23, 0, 0, 0, time.UTC))
 
 	metrics := []telegraf.Metric{m1}
@@ -155,7 +155,7 @@ func testSyslogWriteWithPacket(t *testing.T, s *Syslog, lconn net.PacketConn) {
 	m1 := metric.New(
 		"testmetric",
 		map[string]string{},
-		map[string]interface{}{},
+		map[string]any{},
 		time.Date(2010, time.November, 10, 23, 0, 0, 0, time.UTC))
 
 	metrics := []telegraf.Metric{m1}
@@ -268,13 +268,14 @@ func TestStartupErrorBehaviorDefault(t *testing.T) {
 		DefaultAppname:      "Telegraf",
 	}
 
-	model := models.NewRunningOutput(
+	model, err := models.NewRunningOutput(
 		plugin,
 		&models.OutputConfig{
 			Name: "syslog",
 		},
 		10, 100,
 	)
+	require.NoError(t, err)
 	require.NoError(t, model.Init())
 
 	// Starting the plugin will fail with an error because the server does not listen
@@ -301,7 +302,7 @@ func TestStartupErrorBehaviorError(t *testing.T) {
 		DefaultAppname:      "Telegraf",
 	}
 
-	model := models.NewRunningOutput(
+	model, err := models.NewRunningOutput(
 		plugin,
 		&models.OutputConfig{
 			Name:                 "syslog",
@@ -309,6 +310,7 @@ func TestStartupErrorBehaviorError(t *testing.T) {
 		},
 		10, 100,
 	)
+	require.NoError(t, err)
 	require.NoError(t, model.Init())
 
 	// Starting the plugin will fail with an error because the server does not listen
@@ -335,7 +337,7 @@ func TestStartupErrorBehaviorIgnore(t *testing.T) {
 		DefaultAppname:      "Telegraf",
 	}
 
-	model := models.NewRunningOutput(
+	model, err := models.NewRunningOutput(
 		plugin,
 		&models.OutputConfig{
 			Name:                 "syslog",
@@ -343,6 +345,7 @@ func TestStartupErrorBehaviorIgnore(t *testing.T) {
 		},
 		10, 100,
 	)
+	require.NoError(t, err)
 	require.NoError(t, model.Init())
 
 	// Starting the plugin will fail because the server does not accept connections.
@@ -371,7 +374,7 @@ func TestStartupErrorBehaviorRetry(t *testing.T) {
 		DefaultAppname:      "Telegraf",
 	}
 
-	model := models.NewRunningOutput(
+	model, err := models.NewRunningOutput(
 		plugin,
 		&models.OutputConfig{
 			Name:                 "syslog",
@@ -379,6 +382,7 @@ func TestStartupErrorBehaviorRetry(t *testing.T) {
 		},
 		10, 100,
 	)
+	require.NoError(t, err)
 	require.NoError(t, model.Init())
 
 	// Starting the plugin will return no error because the plugin will
@@ -402,10 +406,7 @@ func TestStartupErrorBehaviorRetry(t *testing.T) {
 	var wg sync.WaitGroup
 	buf := make([]byte, 256)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		conn, err := listener.Accept()
 		if err != nil {
 			t.Logf("accepting connection failed: %v", err)
@@ -423,7 +424,7 @@ func TestStartupErrorBehaviorRetry(t *testing.T) {
 			t.Logf("reading failed: %v", err)
 			t.Fail()
 		}
-	}()
+	})
 
 	// Update the plugin's address and write again. This time the write should
 	// succeed.
@@ -488,11 +489,7 @@ func TestCases(t *testing.T) {
 			require.NoError(t, err)
 
 			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				server.listen()
-			}()
+			wg.Go(server.listen)
 			defer server.close()
 
 			// Setup the plugin

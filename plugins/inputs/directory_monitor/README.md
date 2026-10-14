@@ -15,12 +15,19 @@ picked up yet.
 🏷️ system
 💻 all
 
+## Tracking metric support <!-- @/docs/includes/plugin_tracking_metrics.md -->
+
+This plugin supports [tracking metrics][METRICS.md], which allows the plugin
+to be notified when metrics have been delivered to all outputs, enabling proper
+acknowledgment back to the source.
+
+[METRICS.md]: ../../../docs/METRICS.md#tracking-metrics
+
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -67,6 +74,10 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
   ## significantly. Read more about cardinality here:
   ## https://docs.influxdata.com/influxdb/cloud/reference/glossary/#series-cardinality
   # file_tag = ""
+  #
+  ## Preserve the original modification timestamp when moving processed files
+  ## to the finished or error directory. Access times are best-effort only.
+  # preserve_timestamps = false
   #
   ## Specify if the file can be read completely at once or if it needs to be read line by line (default).
   ## Possible values: "line-by-line", "at-once"

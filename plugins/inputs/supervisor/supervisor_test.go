@@ -4,7 +4,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go/wait"
 
@@ -16,9 +15,9 @@ func TestShort_SampleData(t *testing.T) {
 		desc              string
 		supervisorData    supervisorInfo
 		sampleProcInfo    []processInfo
-		expProcessFields  []map[string]interface{}
+		expProcessFields  []map[string]any
 		expProcessTags    []map[string]string
-		expInstanceFields map[string]interface{}
+		expInstanceFields map[string]any
 		expInstancesTags  map[string]string
 	}{
 		{
@@ -60,7 +59,7 @@ func TestShort_SampleData(t *testing.T) {
 				StateName: "RUNNING",
 				Ident:     "supervisor",
 			},
-			expProcessFields: []map[string]interface{}{
+			expProcessFields: []map[string]any{
 				{
 					"uptime":   int32(731),
 					"state":    int16(20),
@@ -90,7 +89,7 @@ func TestShort_SampleData(t *testing.T) {
 					"id":      "supervisor",
 				},
 			},
-			expInstanceFields: map[string]interface{}{
+			expInstanceFields: map[string]any{
 				"state": int8(1),
 			},
 			expInstancesTags: map[string]string{
@@ -143,7 +142,7 @@ func TestIntegration_BasicGathering(t *testing.T) {
 		},
 		WaitingFor: wait.ForAll(
 			wait.ForLog("entered RUNNING state").WithOccurrence(6),
-			wait.ForListeningPort(nat.Port(supervisorPort)),
+			wait.ForListeningPort(supervisorPort),
 		),
 	}
 	err = ctr.Start()

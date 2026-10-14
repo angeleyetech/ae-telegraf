@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,7 +23,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/influxdata/telegraf"
-	"github.com/influxdata/telegraf/internal/choice"
 	"github.com/influxdata/telegraf/plugins/inputs"
 )
 
@@ -208,7 +208,7 @@ func (r *IntelRDT) associateProcessesWithPIDs(providedProcesses []string) (map[s
 
 	mapProcessPIDs := make(map[string]string, len(availableProcesses))
 	for _, availableProcess := range availableProcesses {
-		if choice.Contains(availableProcess.Name, providedProcesses) {
+		if slices.Contains(providedProcesses, availableProcess.Name) {
 			pid := availableProcess.PID
 			mapProcessPIDs[availableProcess.Name] = mapProcessPIDs[availableProcess.Name] + strconv.Itoa(pid) + ","
 		}
@@ -355,20 +355,22 @@ func shutDownPqos(pqos *exec.Cmd) error {
 
 func createArgCores(cores []string) string {
 	allGroupsArg := "--mon-core="
+	var b strings.Builder
 	for _, coreGroup := range cores {
 		argGroup := createArgsForGroups(strings.Split(coreGroup, ","))
-		allGroupsArg = allGroupsArg + argGroup
+		b.WriteString(argGroup)
 	}
-	return allGroupsArg
+	return allGroupsArg + b.String()
 }
 
 func createArgProcess(processPIDs map[string]string) string {
 	allPIDsArg := "--mon-pid="
+	var b strings.Builder
 	for _, PIDs := range processPIDs {
 		argPIDs := createArgsForGroups(strings.Split(PIDs, ","))
-		allPIDsArg = allPIDsArg + argPIDs
+		b.WriteString(argPIDs)
 	}
-	return allPIDsArg
+	return allPIDsArg + b.String()
 }
 
 func createArgsForGroups(coresOrPIDs []string) string {
@@ -405,9 +407,8 @@ func parseCoresConfig(cores []string) ([]string, error) {
 	parsedCores := make([]string, 0, len(cores))
 	for _, singleCoreGroup := range cores {
 		var actualGroupOfCores []int
-		separatedCores := strings.Split(singleCoreGroup, ",")
 
-		for _, coreStr := range separatedCores {
+		for coreStr := range strings.SplitSeq(singleCoreGroup, ",") {
 			actualCores, err := validateAndParseCores(coreStr)
 			if err != nil {
 				return nil, fmt.Errorf("wrong cores input config data format: %w", err)
@@ -527,10 +528,8 @@ func arrayToString(array []int) string {
 
 func checkForDuplicates(values, valuesToCheck []int) bool {
 	for _, value := range values {
-		for _, valueToCheck := range valuesToCheck {
-			if value == valueToCheck {
-				return true
-			}
+		if slices.Contains(valuesToCheck, value) {
+			return true
 		}
 	}
 	return false

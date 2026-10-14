@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -60,7 +61,7 @@ func TestRavenDBGeneratesMetricsFull(t *testing.T) {
 	err := acc.GatherError(r.Gather)
 	require.NoError(t, err)
 
-	serverFields := map[string]interface{}{
+	serverFields := map[string]any{
 		"server_version":                                                "5.1",
 		"server_full_version":                                           "5.1.1-custom-51",
 		"uptime_in_sec":                                                 int64(30),
@@ -117,7 +118,7 @@ func TestRavenDBGeneratesMetricsFull(t *testing.T) {
 
 	defaultTime := time.Unix(0, 0)
 
-	dbFields := map[string]interface{}{
+	dbFields := map[string]any{
 		"uptime_in_sec":                               float64(1396),
 		"time_since_last_backup_in_sec":               104.3,
 		"counts_documents":                            425189,
@@ -164,7 +165,7 @@ func TestRavenDBGeneratesMetricsFull(t *testing.T) {
 		"public_server_url": "http://myhost:8080",
 	}
 
-	indexFields := map[string]interface{}{
+	indexFields := map[string]any{
 		"priority":                        "Normal",
 		"state":                           "Normal",
 		"errors":                          0,
@@ -186,7 +187,7 @@ func TestRavenDBGeneratesMetricsFull(t *testing.T) {
 		"index_name":        "Product/Rating",
 	}
 
-	collectionFields := map[string]interface{}{
+	collectionFields := map[string]any{
 		"documents_count":          830,
 		"total_size_in_bytes":      2744320,
 		"documents_size_in_bytes":  868352,
@@ -202,21 +203,21 @@ func TestRavenDBGeneratesMetricsFull(t *testing.T) {
 		"public_server_url": "http://localhost:8080",
 	}
 
-	serverExpected := testutil.MustMetric("ravendb_server", serverTags, serverFields, defaultTime)
-	dbExpected := testutil.MustMetric("ravendb_databases", dbTags, dbFields, defaultTime)
-	indexExpected := testutil.MustMetric("ravendb_indexes", indexTags, indexFields, defaultTime)
-	collectionsExpected := testutil.MustMetric("ravendb_collections", collectionTags, collectionFields, defaultTime)
+	serverExpected := metric.New("ravendb_server", serverTags, serverFields, defaultTime)
+	dbExpected := metric.New("ravendb_databases", dbTags, dbFields, defaultTime)
+	indexExpected := metric.New("ravendb_indexes", indexTags, indexFields, defaultTime)
+	collectionsExpected := metric.New("ravendb_collections", collectionTags, collectionFields, defaultTime)
 
-	for _, metric := range acc.GetTelegrafMetrics() {
-		switch metric.Name() {
+	for _, m := range acc.GetTelegrafMetrics() {
+		switch m.Name() {
 		case "ravendb_server":
-			testutil.RequireMetricEqual(t, serverExpected, metric, testutil.IgnoreTime())
+			testutil.RequireMetricEqual(t, serverExpected, m, testutil.IgnoreTime())
 		case "ravendb_databases":
-			testutil.RequireMetricEqual(t, dbExpected, metric, testutil.IgnoreTime())
+			testutil.RequireMetricEqual(t, dbExpected, m, testutil.IgnoreTime())
 		case "ravendb_indexes":
-			testutil.RequireMetricEqual(t, indexExpected, metric, testutil.IgnoreTime())
+			testutil.RequireMetricEqual(t, indexExpected, m, testutil.IgnoreTime())
 		case "ravendb_collections":
-			testutil.RequireMetricEqual(t, collectionsExpected, metric, testutil.IgnoreTime())
+			testutil.RequireMetricEqual(t, collectionsExpected, m, testutil.IgnoreTime())
 		}
 	}
 }
@@ -269,7 +270,7 @@ func TestRavenDBGeneratesMetricsMin(t *testing.T) {
 	err := acc.GatherError(r.Gather)
 	require.NoError(t, err)
 
-	serverFields := map[string]interface{}{
+	serverFields := map[string]any{
 		"server_version":                                    "5.1",
 		"server_full_version":                               "5.1.1-custom-51",
 		"uptime_in_sec":                                     30,
@@ -315,7 +316,7 @@ func TestRavenDBGeneratesMetricsMin(t *testing.T) {
 		"cluster_id": "6b535a18-558f-4e53-a479-a514efc16aab",
 	}
 
-	dbFields := map[string]interface{}{
+	dbFields := map[string]any{
 		"uptime_in_sec":                               float64(1396),
 		"counts_documents":                            425189,
 		"counts_revisions":                            429605,
@@ -355,7 +356,7 @@ func TestRavenDBGeneratesMetricsMin(t *testing.T) {
 		"database_id":   "06eefe8b-d720-4a8d-a809-2c5af9a4abb5",
 	}
 
-	indexFields := map[string]interface{}{
+	indexFields := map[string]any{
 		"priority":        "Normal",
 		"state":           "Normal",
 		"errors":          0,
@@ -374,7 +375,7 @@ func TestRavenDBGeneratesMetricsMin(t *testing.T) {
 		"index_name":    "Product/Rating",
 	}
 
-	collectionFields := map[string]interface{}{
+	collectionFields := map[string]any{
 		"documents_count":          830,
 		"total_size_in_bytes":      2744320,
 		"documents_size_in_bytes":  868352,
@@ -391,21 +392,21 @@ func TestRavenDBGeneratesMetricsMin(t *testing.T) {
 
 	defaultTime := time.Unix(0, 0)
 
-	serverExpected := testutil.MustMetric("ravendb_server", serverTags, serverFields, defaultTime)
-	dbExpected := testutil.MustMetric("ravendb_databases", dbTags, dbFields, defaultTime)
-	indexExpected := testutil.MustMetric("ravendb_indexes", indexTags, indexFields, defaultTime)
-	collectionsExpected := testutil.MustMetric("ravendb_collections", collectionTags, collectionFields, defaultTime)
+	serverExpected := metric.New("ravendb_server", serverTags, serverFields, defaultTime)
+	dbExpected := metric.New("ravendb_databases", dbTags, dbFields, defaultTime)
+	indexExpected := metric.New("ravendb_indexes", indexTags, indexFields, defaultTime)
+	collectionsExpected := metric.New("ravendb_collections", collectionTags, collectionFields, defaultTime)
 
-	for _, metric := range acc.GetTelegrafMetrics() {
-		switch metric.Name() {
+	for _, m := range acc.GetTelegrafMetrics() {
+		switch m.Name() {
 		case "ravendb_server":
-			testutil.RequireMetricEqual(t, serverExpected, metric, testutil.IgnoreTime())
+			testutil.RequireMetricEqual(t, serverExpected, m, testutil.IgnoreTime())
 		case "ravendb_databases":
-			testutil.RequireMetricEqual(t, dbExpected, metric, testutil.IgnoreTime())
+			testutil.RequireMetricEqual(t, dbExpected, m, testutil.IgnoreTime())
 		case "ravendb_indexes":
-			testutil.RequireMetricEqual(t, indexExpected, metric, testutil.IgnoreTime())
+			testutil.RequireMetricEqual(t, indexExpected, m, testutil.IgnoreTime())
 		case "ravendb_collections":
-			testutil.RequireMetricEqual(t, collectionsExpected, metric, testutil.IgnoreTime())
+			testutil.RequireMetricEqual(t, collectionsExpected, m, testutil.IgnoreTime())
 		}
 	}
 }

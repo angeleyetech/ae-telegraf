@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gofrs/uuid/v5"
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
@@ -25,7 +26,7 @@ func TestRunningInputMakeMetricFilterAfterApplyingGlobalTags(t *testing.T) {
 
 	m := metric.New("cpu",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": 42,
 		},
 		now)
@@ -36,7 +37,7 @@ func TestRunningInputMakeMetricFilterAfterApplyingGlobalTags(t *testing.T) {
 		map[string]string{
 			"b": "y",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value": 42,
 		},
 		now)
@@ -52,7 +53,7 @@ func TestRunningInputMakeMetricNoFields(t *testing.T) {
 
 	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{},
+		map[string]any{},
 		now,
 		telegraf.Untyped)
 	actual := ri.MakeMetric(m)
@@ -68,7 +69,7 @@ func TestRunningInputMakeMetricNilFields(t *testing.T) {
 
 	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 			"nil":   nil,
 		},
@@ -78,7 +79,7 @@ func TestRunningInputMakeMetricNilFields(t *testing.T) {
 
 	expected := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int(101),
 		},
 		now,
@@ -96,9 +97,9 @@ func TestRunningInputMakeMetricWithPluginTags(t *testing.T) {
 		},
 	})
 
-	m := testutil.MustMetric("RITest",
+	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now,
@@ -109,7 +110,7 @@ func TestRunningInputMakeMetricWithPluginTags(t *testing.T) {
 		map[string]string{
 			"foo": "bar",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value": 101,
 		},
 		now,
@@ -131,7 +132,7 @@ func TestRunningInputMakeMetricFilteredOut(t *testing.T) {
 
 	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now,
@@ -149,9 +150,9 @@ func TestRunningInputMakeMetricWithDaemonTags(t *testing.T) {
 		"foo": "bar",
 	})
 
-	m := testutil.MustMetric("RITest",
+	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now,
@@ -161,7 +162,7 @@ func TestRunningInputMakeMetricWithDaemonTags(t *testing.T) {
 		map[string]string{
 			"foo": "bar",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value": 101,
 		},
 		now,
@@ -178,7 +179,7 @@ func TestRunningInputMakeMetricNameOverride(t *testing.T) {
 
 	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now,
@@ -186,7 +187,7 @@ func TestRunningInputMakeMetricNameOverride(t *testing.T) {
 	actual := ri.MakeMetric(m)
 	expected := metric.New("foobar",
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"value": 101,
 		},
 		now,
@@ -203,7 +204,7 @@ func TestRunningInputMakeMetricNamePrefix(t *testing.T) {
 
 	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now,
@@ -211,7 +212,7 @@ func TestRunningInputMakeMetricNamePrefix(t *testing.T) {
 	actual := ri.MakeMetric(m)
 	expected := metric.New("foobar_RITest",
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"value": 101,
 		},
 		now,
@@ -228,7 +229,7 @@ func TestRunningInputMakeMetricNameSuffix(t *testing.T) {
 
 	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now,
@@ -236,7 +237,7 @@ func TestRunningInputMakeMetricNameSuffix(t *testing.T) {
 	actual := ri.MakeMetric(m)
 	expected := metric.New("RITest_foobar",
 		nil,
-		map[string]interface{}{
+		map[string]any{
 			"value": 101,
 		},
 		now,
@@ -287,11 +288,11 @@ func TestRunningInputMakeMetricWithAlwaysKeepingPluginTagsDisabled(t *testing.T)
 	ri.SetDefaultTags(map[string]string{"logic": "rulez"})
 	require.NoError(t, ri.Config.Filter.Compile())
 
-	m := testutil.MustMetric("RITest",
+	m := metric.New("RITest",
 		map[string]string{
 			"b": "test",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now,
@@ -302,7 +303,7 @@ func TestRunningInputMakeMetricWithAlwaysKeepingPluginTagsDisabled(t *testing.T)
 		map[string]string{
 			"b": "test",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value": 101,
 		},
 		now,
@@ -325,11 +326,11 @@ func TestRunningInputMakeMetricWithAlwaysKeepingLocalPluginTagsEnabled(t *testin
 	ri.SetDefaultTags(map[string]string{"logic": "rulez"})
 	require.NoError(t, ri.Config.Filter.Compile())
 
-	m := testutil.MustMetric("RITest",
+	m := metric.New("RITest",
 		map[string]string{
 			"b": "test",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now,
@@ -341,7 +342,7 @@ func TestRunningInputMakeMetricWithAlwaysKeepingLocalPluginTagsEnabled(t *testin
 			"b":   "test",
 			"foo": "bar",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value": 101,
 		},
 		now,
@@ -364,11 +365,11 @@ func TestRunningInputMakeMetricWithAlwaysKeepingGlobalPluginTagsEnabled(t *testi
 	ri.SetDefaultTags(map[string]string{"logic": "rulez"})
 	require.NoError(t, ri.Config.Filter.Compile())
 
-	m := testutil.MustMetric("RITest",
+	m := metric.New("RITest",
 		map[string]string{
 			"b": "test",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now,
@@ -380,7 +381,7 @@ func TestRunningInputMakeMetricWithAlwaysKeepingGlobalPluginTagsEnabled(t *testi
 			"b":     "test",
 			"logic": "rulez",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value": 101,
 		},
 		now,
@@ -404,11 +405,11 @@ func TestRunningInputMakeMetricWithAlwaysKeepingPluginTagsEnabled(t *testing.T) 
 	ri.SetDefaultTags(map[string]string{"logic": "rulez"})
 	require.NoError(t, ri.Config.Filter.Compile())
 
-	m := testutil.MustMetric("RITest",
+	m := metric.New("RITest",
 		map[string]string{
 			"b": "test",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now,
@@ -421,7 +422,7 @@ func TestRunningInputMakeMetricWithAlwaysKeepingPluginTagsEnabled(t *testing.T) 
 			"foo":   "bar",
 			"logic": "rulez",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value": 101,
 		},
 		now,
@@ -518,7 +519,7 @@ func TestRunningInputProbingSuccess(t *testing.T) {
 		},
 		{
 			name:                 "probing plugin with probe value not set",
-			input:                &mockInput{probeErr},
+			input:                &mockInput{probeReturn: probeErr},
 			startupErrorBehavior: "ignore",
 		},
 	} {
@@ -533,8 +534,89 @@ func TestRunningInputProbingSuccess(t *testing.T) {
 	}
 }
 
+func TestRunningInputStatisticsErrorsCount(t *testing.T) {
+	id, err := uuid.NewV4()
+	require.NoError(t, err)
+	expectedErr := errors.New("an error")
+
+	// Setup a plugin that returns an error during gather
+	plugin := &mockInput{
+		gatherReturn: expectedErr,
+	}
+	model := NewRunningInput(plugin, &InputConfig{
+		Name:  "mock",
+		Alias: "TestRunningOutputStatisticsErrorCount",
+		ID:    id.String(),
+	})
+	require.NoError(t, model.Init())
+
+	var acc testutil.Accumulator
+	require.NoError(t, model.Start(&acc))
+	defer model.Stop()
+
+	// Get a reference to the plugin's statistics error counter
+	tags := map[string]string{
+		"input": model.Config.Name,
+		"_id":   model.Config.ID,
+		"alias": model.Config.Alias,
+	}
+	stats := selfstat.Register("gather", "errors", tags)
+	require.Zero(t, stats.Get())
+
+	GlobalGatherErrors.Set(0)
+
+	// Log an error in the plugin and verify the error counter increases
+	plugin.Log.Error("an error logging message")
+	require.Equal(t, int64(1), stats.Get())
+
+	// The counter should not increase in case of other log levels
+	plugin.Log.Warn("a warning message")
+	require.Equal(t, int64(1), stats.Get())
+
+	// The logging errors should not increase the gather error count
+	require.Zero(t, model.GatherErrors.Get())
+	require.Zero(t, GlobalGatherErrors.Get())
+}
+
+func TestRunningInputStatisticsGatherErrorsCount(t *testing.T) {
+	id, err := uuid.NewV4()
+	require.NoError(t, err)
+	expectedErr := errors.New("an error")
+
+	// Setup a plugin that returns an error during gather
+	plugin := &mockInput{
+		gatherReturn: expectedErr,
+	}
+	model := NewRunningInput(plugin, &InputConfig{
+		Name:  "mock",
+		Alias: "TestRunningOutputStatisticsErrorCount",
+		ID:    id.String(),
+	})
+	require.NoError(t, model.Init())
+
+	var acc testutil.Accumulator
+	require.NoError(t, model.Start(&acc))
+	defer model.Stop()
+
+	// We should start off with an empty count
+	require.Zero(t, model.GatherErrors.Get())
+	GlobalGatherErrors.Set(0)
+
+	// Logging an error in the plugin should not increase the count
+	plugin.Log.Error("an error logging message")
+	require.Zero(t, model.GatherErrors.Get())
+
+	// A failed collection should increase the error count
+	require.ErrorIs(t, model.Gather(&acc), expectedErr)
+	require.Equal(t, int64(1), model.GatherErrors.Get())
+	require.Equal(t, int64(1), GlobalGatherErrors.Get())
+}
+
 type mockInput struct {
-	probeReturn error
+	probeReturn  error
+	gatherReturn error
+
+	Log telegraf.Logger
 }
 
 func (*mockInput) SampleConfig() string {
@@ -545,6 +627,6 @@ func (m *mockInput) Probe() error {
 	return m.probeReturn
 }
 
-func (*mockInput) Gather(telegraf.Accumulator) error {
-	return nil
+func (m *mockInput) Gather(telegraf.Accumulator) error {
+	return m.gatherReturn
 }

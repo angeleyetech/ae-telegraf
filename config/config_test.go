@@ -26,6 +26,7 @@ import (
 	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/models"
 	"github.com/influxdata/telegraf/persister"
+	"github.com/influxdata/telegraf/plugins/aggregators"
 	"github.com/influxdata/telegraf/plugins/common/tls"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/influxdata/telegraf/plugins/outputs"
@@ -144,6 +145,29 @@ func TestConfig_LoadSingleInput(t *testing.T) {
 	c.Inputs[0].Config.ID = ""
 	require.Equal(t, input, c.Inputs[0].Input, "Testdata did not produce a correct memcached struct.")
 	require.Equal(t, inputConfig, c.Inputs[0].Config, "Testdata did not produce correct memcached metadata.")
+}
+
+func TestConfig_InputCollectionJitterExplicitZeroIsSet(t *testing.T) {
+	c := config.NewConfig()
+	cfg := []byte(`
+[agent]
+  collection_jitter = "10s"
+
+[[inputs.memcached]]
+  servers = ["localhost"]
+  collection_jitter = "0s"
+
+[[inputs.memcached]]
+  servers = ["127.0.0.1"]
+`)
+	require.NoError(t, c.LoadConfigData(cfg, config.EmptySourcePath))
+	require.Len(t, c.Inputs, 2)
+
+	require.Equal(t, time.Duration(0), c.Inputs[0].Config.CollectionJitter)
+	require.True(t, c.Inputs[0].Config.CollectionJitterSet)
+
+	require.Equal(t, time.Duration(0), c.Inputs[1].Config.CollectionJitter)
+	require.False(t, c.Inputs[1].Config.CollectionJitterSet)
 }
 
 func TestConfig_LoadSingleInput_WithSeparators(t *testing.T) {
@@ -319,7 +343,9 @@ func TestConfig_LoadDirectory(t *testing.T) {
 			require.NoError(t, parser.Init())
 			parser.Log = nil
 
-			// Compare the parser
+			// Compare the parser ignoring the time function
+			expectedPlugins[i].parser.(telegraf.ParserTimeFuncPlugin).SetTimeFunc(nil)
+			parser.SetTimeFunc(nil)
 			require.Equalf(t, expectedPlugins[i].parser, parser, "Plugin %d: incorrect parser produced", i)
 		}
 
@@ -481,6 +507,22 @@ func TestConfig_InlineTables(t *testing.T) {
 	require.Equal(t, []string{"org_id"}, c.Outputs[0].Config.Filter.TagInclude)
 }
 
+func TestConfig_TestModeSkipsOutputBuffer(t *testing.T) {
+	c := config.NewConfig()
+	err := c.LoadConfig("testdata/test_mode_disk_buffer.toml")
+	require.ErrorContains(t, err, "creating buffer failed")
+
+	c = config.NewConfig()
+	c.TestMode = true
+	require.NoError(t, c.LoadConfig("testdata/test_mode_disk_buffer.toml"))
+	require.Len(t, c.Outputs, 1)
+	require.Equal(t, "discard", c.Outputs[0].Config.BufferStrategy)
+
+	output, ok := c.Outputs[0].Output.(*MockupOutputPluginSerializerNew)
+	require.True(t, ok)
+	require.NotNil(t, output.Serializer)
+}
+
 func TestConfig_SliceComment(t *testing.T) {
 	c := config.NewConfig()
 	require.NoError(t, c.LoadConfig("./testdata/slice_comment.toml"))
@@ -563,19 +605,19 @@ func TestConfig_Filtering(t *testing.T) {
 		metric.New(
 			"machine",
 			map[string]string{"state": "on"},
-			map[string]interface{}{"value": 42.0},
+			map[string]any{"value": 42.0},
 			time.Date(2023, time.April, 23, 01, 15, 30, 0, time.UTC),
 		),
 		metric.New(
 			"machine",
 			map[string]string{"state": "off"},
-			map[string]interface{}{"value": 23.0},
+			map[string]any{"value": 23.0},
 			time.Date(2023, time.April, 23, 23, 59, 01, 0, time.UTC),
 		),
 		metric.New(
 			"temperature",
 			map[string]string{},
-			map[string]interface{}{"value": 23.5},
+			map[string]any{"value": 23.5},
 			time.Date(2023, time.April, 24, 02, 15, 30, 0, time.UTC),
 		),
 	}
@@ -586,13 +628,13 @@ func TestConfig_Filtering(t *testing.T) {
 				"state":     "on",
 				"processed": "yes",
 			},
-			map[string]interface{}{"value": 42.0},
+			map[string]any{"value": 42.0},
 			time.Date(2023, time.April, 23, 01, 15, 30, 0, time.UTC),
 		),
 		metric.New(
 			"machine",
 			map[string]string{"state": "off"},
-			map[string]interface{}{"value": 23.0},
+			map[string]any{"value": 23.0},
 			time.Date(2023, time.April, 23, 23, 59, 01, 0, time.UTC),
 		),
 		metric.New(
@@ -600,7 +642,7 @@ func TestConfig_Filtering(t *testing.T) {
 			map[string]string{
 				"processed": "yes",
 			},
-			map[string]interface{}{"value": 23.5},
+			map[string]any{"value": 23.5},
 			time.Date(2023, time.April, 24, 02, 15, 30, 0, time.UTC),
 		),
 	}
@@ -634,7 +676,7 @@ func TestConfig_SerializerInterfaceNewFormat(t *testing.T) {
 	require.Len(t, c.Outputs, len(formats))
 
 	override := map[string]struct {
-		param map[string]interface{}
+		param map[string]any
 		mask  []string
 	}{}
 
@@ -663,7 +705,7 @@ func TestConfig_SerializerInterfaceNewFormat(t *testing.T) {
 	}
 	require.Len(t, expected, len(formats))
 
-	actual := make([]interface{}, 0)
+	actual := make([]any, 0)
 	for _, plugin := range c.Outputs {
 		output, ok := plugin.Output.(*MockupOutputPluginSerializerNew)
 		require.True(t, ok)
@@ -722,23 +764,23 @@ func TestConfig_ParserInterface(t *testing.T) {
 	require.Len(t, c.Inputs, len(formats))
 
 	override := map[string]struct {
-		param map[string]interface{}
+		param map[string]any
 		mask  []string
 	}{
 		"csv": {
-			param: map[string]interface{}{
+			param: map[string]any{
 				"HeaderRowCount": 42,
 			},
-			mask: []string{"TimeFunc", "ResetMode"},
+			mask: []string{"ResetMode"},
 		},
 		"xpath_protobuf": {
-			param: map[string]interface{}{
+			param: map[string]any{
 				"ProtobufMessageDef":  "testdata/addressbook.proto",
 				"ProtobufMessageType": "addressbook.AddressBook",
 			},
 		},
 		"json_v2": {
-			param: map[string]interface{}{
+			param: map[string]any{
 				"Configs": []json_v2.Config{{
 					Fields: []json_v2.DataSet{{
 						Path:     "",
@@ -774,8 +816,8 @@ func TestConfig_ParserInterface(t *testing.T) {
 	}
 	require.Len(t, expected, len(formats))
 
-	actual := make([]interface{}, 0)
-	generated := make([]interface{}, 0)
+	actual := make([]any, 0)
+	generated := make([]any, 0)
 	for _, plugin := range c.Inputs {
 		input, ok := plugin.Input.(*MockupInputPluginParserNew)
 		require.True(t, ok)
@@ -905,7 +947,7 @@ func TestConfig_MultipleProcessorsOrder(t *testing.T) {
 
 			require.Len(t, c.Processors, len(test.expectedOrder))
 
-			var order []string
+			order := make([]string, 0, len(c.Processors))
 			for _, p := range c.Processors {
 				order = append(order, p.Config.Name)
 			}
@@ -940,23 +982,23 @@ func TestConfig_ProcessorsWithParsers(t *testing.T) {
 	require.Len(t, c.Processors, len(formats))
 
 	override := map[string]struct {
-		param map[string]interface{}
+		param map[string]any
 		mask  []string
 	}{
 		"csv": {
-			param: map[string]interface{}{
+			param: map[string]any{
 				"HeaderRowCount": 42,
 			},
-			mask: []string{"TimeFunc", "ResetMode"},
+			mask: []string{"ResetMode"},
 		},
 		"xpath_protobuf": {
-			param: map[string]interface{}{
+			param: map[string]any{
 				"ProtobufMessageDef":  "testdata/addressbook.proto",
 				"ProtobufMessageType": "addressbook.AddressBook",
 			},
 		},
 		"json_v2": {
-			param: map[string]interface{}{
+			param: map[string]any{
 				"Configs": []json_v2.Config{{
 					Fields: []json_v2.DataSet{{
 						Path:     "",
@@ -992,8 +1034,8 @@ func TestConfig_ProcessorsWithParsers(t *testing.T) {
 	}
 	require.Len(t, expected, len(formats))
 
-	actual := make([]interface{}, 0)
-	generated := make([]interface{}, 0)
+	actual := make([]any, 0)
+	generated := make([]any, 0)
 	for _, plugin := range c.Processors {
 		var processorIF telegraf.Processor
 		if p, ok := plugin.Processor.(processors.HasUnwrap); ok {
@@ -1108,7 +1150,7 @@ func TestPersisterInputStoreLoad(t *testing.T) {
 	}
 	require.NoError(t, persisterStore.Init())
 
-	expected := make(map[string]interface{})
+	expected := make(map[string]any)
 	for i, plugin := range cstore.Inputs {
 		require.NoError(t, plugin.Init())
 
@@ -1192,6 +1234,321 @@ func TestPersisterProcessorRegistration(t *testing.T) {
 		p := unwrapped.(*MockupProcessorPlugin)
 		require.NoError(t, dut.Register(plugin.ID(), p))
 	}
+}
+
+func TestConfigEnvVarsStrict(t *testing.T) {
+	tests := []struct {
+		name     string
+		file     string
+		envvars  map[string]string
+		expected *MockupInputPlugin
+	}{
+		{
+			name: "valid",
+			file: "envvar_valid.conf",
+			envvars: map[string]string{
+				"MY_TEST_SERVER": "192.168.1.1",
+			},
+			expected: &MockupInputPlugin{
+				Servers: []string{"192.168.1.1"},
+				Port:    8080,
+				Command: `Raw command which may or may not contain # in it
+# is unique`,
+			},
+		},
+		{
+			name: "valid multiline",
+			file: "envvar_valid_multiline.conf",
+			envvars: map[string]string{
+				"MY_TEST_SERVER": "192.168.1.1",
+				"COMMAND": `
+					Raw command potentially
+					with multiple
+					lines in it
+				`,
+			},
+			expected: &MockupInputPlugin{
+				Servers: []string{"192.168.1.1"},
+				Port:    8080,
+				Command: "    " + `
+					Raw command potentially
+					with multiple
+					lines in it
+				` + "\n  ",
+			},
+		},
+
+		{
+			name: "malicious envvar",
+			file: "envvar_malicious.conf",
+			envvars: map[string]string{
+				"PORT": "8080",
+				"PIDFILE": `a pid"
+
+			[[inputs.memcached]]
+			  command = "evil`,
+			},
+			expected: &MockupInputPlugin{
+				Servers: []string{"my.server.com"},
+				Port:    8080,
+				Command: `Raw command which may or may not contain # in it
+# is unique`,
+				PidFile: `a pid"
+
+			[[inputs.memcached]]
+			  command = "evil`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config.NonStrictEnvVarHandling = false
+
+			// Export the environment variables
+			for k, v := range tt.envvars {
+				t.Setenv(k, v)
+			}
+
+			// Load the config
+			c := config.NewConfig()
+			confFile := filepath.Join("testdata", tt.file)
+			require.NoError(t, c.LoadConfig(confFile))
+
+			// Validate the loaded data
+			require.Len(t, c.Inputs, 1)
+			plugin, ok := c.Inputs[0].Input.(*MockupInputPlugin)
+			require.Truef(t, ok, "plugin is of wrong type %T", c.Inputs[0].Input)
+
+			// Ignore Log, Parser and ID
+			plugin.Log = nil
+			plugin.parser = nil
+			require.Equal(t, tt.expected, plugin)
+		})
+	}
+}
+
+func TestConfigEnvVarsStrictFailNonString(t *testing.T) {
+	config.NonStrictEnvVarHandling = false
+
+	envvars := map[string]string{
+		"MY_TEST_SERVER": "192.168.1.1",
+		"PORT":           "443",
+	}
+
+	// Export the environment variables
+	for k, v := range envvars {
+		t.Setenv(k, v)
+	}
+
+	// Load the config
+	c := config.NewConfig()
+	confFile := filepath.Join("testdata", "envvar_non_string.conf")
+	require.ErrorContains(t, c.LoadConfig(confFile), "invalid TOML syntax")
+}
+
+func TestConfigEnvVarsNonStrict(t *testing.T) {
+	tests := []struct {
+		name     string
+		file     string
+		envvars  map[string]string
+		expected *MockupInputPlugin
+	}{
+		{
+			name: "valid",
+			file: "envvar_valid.conf",
+			envvars: map[string]string{
+				"MY_TEST_SERVER": "192.168.1.1",
+			},
+			expected: &MockupInputPlugin{
+				Servers: []string{"192.168.1.1"},
+				Command: `Raw command which may or may not contain # in it
+# is unique`,
+				Port: 8080,
+			},
+		},
+		{
+			name: "non-string",
+			file: "envvar_non_string.conf",
+			envvars: map[string]string{
+				"MY_TEST_SERVER": "192.168.1.1",
+				"PORT":           "443",
+			},
+			expected: &MockupInputPlugin{
+				Servers: []string{"192.168.1.1"},
+				Port:    443,
+				Command: `Raw command which may or may not contain # in it
+# is unique`,
+			},
+		},
+		{
+			name: "valid multiline",
+			file: "envvar_valid_multiline.conf",
+			envvars: map[string]string{
+				"MY_TEST_SERVER": "192.168.1.1",
+				"COMMAND": `
+					Raw command potentially
+					with multiple
+					lines in it
+				`,
+			},
+			expected: &MockupInputPlugin{
+				Servers: []string{"192.168.1.1"},
+				Port:    8080,
+				Command: "    " + `
+					Raw command potentially
+					with multiple
+					lines in it
+				` + "\n  ",
+			},
+		},
+
+		{
+			name: "non-string multiline",
+			file: "envvar_non_string_multiline.conf",
+			envvars: map[string]string{
+				"MY_TEST_SERVER": "192.168.1.1",
+				"PORT":           "443",
+				"COMMAND": `
+					Raw command potentially
+					with multiple
+					lines in it
+				`,
+			},
+			expected: &MockupInputPlugin{
+				Servers: []string{"192.168.1.1"},
+				Port:    443,
+				Command: "    " + `
+					Raw command potentially
+					with multiple
+					lines in it
+				` + "\n  ",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config.NonStrictEnvVarHandling = true
+			t.Cleanup(func() {
+				config.NonStrictEnvVarHandling = false
+			})
+
+			// Export the environment variables
+			for k, v := range tt.envvars {
+				t.Setenv(k, v)
+			}
+
+			// Load the config
+			c := config.NewConfig()
+			confFile := filepath.Join("testdata", tt.file)
+			require.NoError(t, c.LoadConfig(confFile))
+
+			// Validate the loaded data
+			require.Len(t, c.Inputs, 1)
+			plugin, ok := c.Inputs[0].Input.(*MockupInputPlugin)
+			require.Truef(t, ok, "plugin is of wrong type %T", c.Inputs[0].Input)
+
+			// Ignore Log, Parser and ID
+			plugin.Log = nil
+			plugin.parser = nil
+			require.Equal(t, tt.expected, plugin)
+		})
+	}
+}
+
+func TestConfigEnvVarsNonStrictMalicious(t *testing.T) {
+	envvars := map[string]string{
+		"PORT": "8080",
+		"PIDFILE": `a pid"
+
+			[[inputs.memcached]]
+			  command = "evil`,
+	}
+
+	config.NonStrictEnvVarHandling = true
+	t.Cleanup(func() {
+		config.NonStrictEnvVarHandling = false
+	})
+
+	// Export the environment variables
+	for k, v := range envvars {
+		t.Setenv(k, v)
+	}
+
+	// Load the config
+	c := config.NewConfig()
+	confFile := filepath.Join("testdata", "envvar_malicious.conf")
+	require.NoError(t, c.LoadConfig(confFile))
+
+	// We expect too plugins due to malicious environment setting
+	require.Len(t, c.Inputs, 2)
+}
+
+func TestInvalidTagpassSyntaxFromFile(t *testing.T) {
+	c := config.NewConfig()
+	require.ErrorContains(t, c.LoadConfig("testdata/tagfilter_invalid.toml"), `invalid syntax for "tagpass"`)
+}
+
+func TestValidTagpassAndTagdropSyntaxFromFile(t *testing.T) {
+	c := config.NewConfig()
+	require.NoError(t, c.LoadConfig("testdata/tagfilter_valid.toml"))
+
+	require.NotEmpty(t, c.Inputs)
+
+	plugin := c.Inputs[0].Config
+	require.Len(t, plugin.Filter.TagPassFilters, 1)
+	require.Len(t, plugin.Filter.TagDropFilters, 1)
+
+	require.Equal(t, "host", plugin.Filter.TagPassFilters[0].Name)
+	require.Equal(t, []string{"server1", "server2"}, plugin.Filter.TagPassFilters[0].Values)
+
+	require.Equal(t, "region", plugin.Filter.TagDropFilters[0].Name)
+	require.Equal(t, []string{"us-west"}, plugin.Filter.TagDropFilters[0].Values)
+}
+
+func TestConfig_SkipProcessorsBeforeAndAfterError(t *testing.T) {
+	c := config.NewConfig()
+	skipAfter := true
+	c.Agent.SkipProcessorsBeforeAggregators = true
+	c.Agent.SkipProcessorsAfterAggregators = &skipAfter
+
+	err := c.LoadAll()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "cannot set both skip_processors_before_aggregators and skip_processors_after_aggregators as true")
+}
+
+func TestConfig_SkipProcessorsBeforeOmitsProcessors(t *testing.T) {
+	c := config.NewConfig()
+	c.Agent.SkipProcessorsBeforeAggregators = true
+
+	require.NoError(t, c.LoadAll(
+		filepath.Join(".", "testdata", "processor_order", "multiple_processors.toml"),
+		filepath.Join(".", "testdata", "processor_order", "aggregator.toml"),
+	))
+	require.Empty(t, c.Processors)
+}
+
+func TestConfig_SkipProcessorsBeforeWithoutAggregatorsKeepsProcessors(t *testing.T) {
+	c := config.NewConfig()
+	c.Agent.SkipProcessorsBeforeAggregators = true
+
+	require.NoError(t, c.LoadAll(filepath.Join(".", "testdata", "processor_order", "multiple_processors.toml")))
+	require.Len(t, c.Processors, 4)
+}
+
+func TestConfig_SkipProcessorsBeforeIsOrderIndependent(t *testing.T) {
+	agentFile := filepath.Join(".", "testdata", "processor_order", "skip_processors_before_agent.toml")
+	processorFile := filepath.Join(".", "testdata", "processor_order", "multiple_processors.toml")
+	aggregatorFile := filepath.Join(".", "testdata", "processor_order", "aggregator.toml")
+
+	cAgentFirst := config.NewConfig()
+	require.NoError(t, cAgentFirst.LoadAll(agentFile, processorFile, aggregatorFile))
+	require.Empty(t, cAgentFirst.Processors, "processors should be cleared when agent file is loaded first")
+
+	cProcessorFirst := config.NewConfig()
+	require.NoError(t, cProcessorFirst.LoadAll(processorFile, aggregatorFile, agentFile))
+	require.Empty(t, cProcessorFirst.Processors, "processors should be cleared when processor file is loaded first")
 }
 
 // Mockup INPUT plugin for (new) parser testing to avoid cyclic dependencies
@@ -1300,6 +1657,16 @@ func (m *MockupProcessorPluginParser) SetParserFunc(f telegraf.ParserFunc) {
 	m.ParserFunc = f
 }
 
+// Mockup AGGREGATOR plugin for testing to avoid cyclic dependencies
+type MockupAggregatorPlugin struct{}
+
+func (*MockupAggregatorPlugin) SampleConfig() string {
+	return "Mockup test aggregator plugin"
+}
+func (*MockupAggregatorPlugin) Add(telegraf.Metric)       {}
+func (*MockupAggregatorPlugin) Push(telegraf.Accumulator) {}
+func (*MockupAggregatorPlugin) Reset()                    {}
+
 // Mockup PROCESSOR plugin without parser
 type MockupProcessorPlugin struct {
 	Option string `toml:"option"`
@@ -1317,10 +1684,10 @@ func (*MockupProcessorPlugin) Apply(in ...telegraf.Metric) []telegraf.Metric {
 	}
 	return out
 }
-func (m *MockupProcessorPlugin) GetState() interface{} {
+func (m *MockupProcessorPlugin) GetState() any {
 	return m.state
 }
-func (m *MockupProcessorPlugin) SetState(state interface{}) error {
+func (m *MockupProcessorPlugin) SetState(state any) error {
 	s, ok := state.([]uint64)
 	if !ok {
 		return fmt.Errorf("invalid state type %T", state)
@@ -1457,11 +1824,11 @@ func (m *MockupStatePlugin) Init() error {
 	return nil
 }
 
-func (m *MockupStatePlugin) GetState() interface{} {
+func (m *MockupStatePlugin) GetState() any {
 	return m.state
 }
 
-func (m *MockupStatePlugin) SetState(state interface{}) error {
+func (m *MockupStatePlugin) SetState(state any) error {
 	s, ok := state.(MockupState)
 	if !ok {
 		return fmt.Errorf("invalid state type %T", state)
@@ -1525,6 +1892,11 @@ func init() {
 	})
 	processors.Add("statetest", func() telegraf.Processor {
 		return &MockupProcessorPlugin{}
+	})
+
+	// Register the mockup aggregator plugin for the required names
+	aggregators.Add("aggregator", func() telegraf.Aggregator {
+		return &MockupAggregatorPlugin{}
 	})
 
 	// Register the mockup output plugin for the required names

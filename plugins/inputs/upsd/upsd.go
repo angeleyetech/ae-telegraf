@@ -4,6 +4,7 @@ package upsd
 import (
 	_ "embed"
 	"fmt"
+	"slices"
 	"strings"
 
 	nut "github.com/robbiet480/go.nut"
@@ -11,7 +12,6 @@ import (
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/filter"
 	"github.com/influxdata/telegraf/internal"
-	"github.com/influxdata/telegraf/internal/choice"
 	"github.com/influxdata/telegraf/plugins/inputs"
 )
 
@@ -19,16 +19,17 @@ import (
 var sampleConfig string
 
 var (
-	// Define the set of variables _always_ included in a metric
-	mandatoryVariableSet = map[string]bool{
-		"battery.date":     true,
-		"battery.mfr.date": true,
-		"battery.runtime":  true,
-		"device.model":     true,
-		"device.serial":    true,
-		"ups.firmware":     true,
-		"ups.status":       true,
+	// Fields that must always be emitted as strings to avoid type conflicts.
+	// The go.nut library auto-detects numeric-looking values (e.g. "0764")
+	// and converts them to int64, but IDs like vendorid/productid should
+	// remain strings regardless of their content.
+	stringFieldSet = map[string]bool{
+		"ups.vendorid":               true,
+		"ups.productid":              true,
+		"driver.parameter.vendorid":  true,
+		"driver.parameter.productid": true,
 	}
+
 	// Define the default field set to add if existing
 	defaultFieldSet = map[string]string{
 		"battery.charge":          "battery_charge_percent",
@@ -56,14 +57,15 @@ const (
 )
 
 type Upsd struct {
-	Server     string          `toml:"server"`
-	Port       int             `toml:"port"`
-	Username   string          `toml:"username"`
-	Password   string          `toml:"password"`
-	ForceFloat bool            `toml:"force_float"`
-	Additional []string        `toml:"additional_fields"`
-	DumpRaw    bool            `toml:"dump_raw_variables" deprecated:"1.35.0;use 'log_level' 'trace' instead"`
-	Log        telegraf.Logger `toml:"-"`
+	Server       string          `toml:"server"`
+	Port         int             `toml:"port"`
+	Username     string          `toml:"username"`
+	Password     string          `toml:"password"`
+	ForceFloat   bool            `toml:"force_float"`
+	StringifyIDs *bool           `toml:"stringify_ids"`
+	Additional   []string        `toml:"additional_fields"`
+	DumpRaw      bool            `toml:"dump_raw_variables" deprecated:"1.35.0;use 'log_level' 'trace' instead"`
+	Log          telegraf.Logger `toml:"-"`
 
 	filter filter.Filter
 	dumped map[string]bool
@@ -82,6 +84,12 @@ func (u *Upsd) Init() error {
 	u.filter = f
 
 	u.dumped = make(map[string]bool)
+
+	if u.StringifyIDs == nil {
+		u.Log.Warn("Option 'stringify_ids' is not set; the default will flip from 'false' to 'true' " +
+			"in a future release to fix vendor/product ID type conflicts. " +
+			"Set it explicitly to lock in behavior and silence this warning.")
+	}
 
 	return nil
 }
@@ -113,7 +121,7 @@ func (u *Upsd) Gather(acc telegraf.Accumulator) error {
 }
 
 func (u *Upsd) gatherUps(acc telegraf.Accumulator, upsname string, variables []nut.Variable) {
-	metrics := make(map[string]interface{})
+	metrics := make(map[string]any)
 	for _, variable := range variables {
 		name := variable.Name
 		value := variable.Value
@@ -141,7 +149,7 @@ func (u *Upsd) gatherUps(acc telegraf.Accumulator, upsname string, variables []n
 	}
 
 	// Add the mandatory information
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"battery_date":     metrics["battery.date"],
 		"battery_mfr_date": metrics["battery.mfr.date"],
 		"status_flags":     status,
@@ -161,9 +169,8 @@ func (u *Upsd) gatherUps(acc telegraf.Accumulator, upsname string, variables []n
 
 	// Try to gather all default fields and optional field
 	for varname, v := range metrics {
-		// Skip all empty fields and all fields contained in the mandatory set
-		// of fields added above.
-		if v == nil || mandatoryVariableSet[varname] {
+		// Skip all empty fields
+		if v == nil {
 			continue
 		}
 
@@ -179,8 +186,19 @@ func (u *Upsd) gatherUps(acc telegraf.Accumulator, upsname string, variables []n
 			continue
 		}
 
+		// Force ID fields to always be strings to avoid type conflicts
+		// between UPS devices with numeric-looking IDs (auto-converted to
+		// int64 by go.nut) and devices with non-numeric IDs.
+		stringify := u.StringifyIDs != nil && *u.StringifyIDs && stringFieldSet[varname]
+		if stringify {
+			str, err := internal.ToString(v)
+			if err == nil {
+				v = str
+			}
+		}
+
 		// Force expected float values to actually being float (e.g. if delivered as int)
-		if u.ForceFloat {
+		if !stringify && u.ForceFloat {
 			float, err := internal.ToFloat64(v)
 			if err == nil {
 				v = float
@@ -192,7 +210,7 @@ func (u *Upsd) gatherUps(acc telegraf.Accumulator, upsname string, variables []n
 	acc.AddFields("upsd", fields, tags)
 }
 
-func mapStatus(metrics map[string]interface{}, tags map[string]string) uint64 {
+func mapStatus(metrics map[string]any, tags map[string]string) uint64 {
 	status := uint64(0)
 	statusString := fmt.Sprintf("%v", metrics["ups.status"])
 	statuses := strings.Fields(statusString)
@@ -206,35 +224,35 @@ func mapStatus(metrics map[string]interface{}, tags map[string]string) uint64 {
 	// 5	Overloaded output
 	// 6	Battery low
 	// 7	Replace battery
-	if choice.Contains("CAL", statuses) {
+	if slices.Contains(statuses, "CAL") {
 		status |= 1 << 0
 		tags["status_CAL"] = "true"
 	}
-	if choice.Contains("TRIM", statuses) {
+	if slices.Contains(statuses, "TRIM") {
 		status |= 1 << 1
 		tags["status_TRIM"] = "true"
 	}
-	if choice.Contains("BOOST", statuses) {
+	if slices.Contains(statuses, "BOOST") {
 		status |= 1 << 2
 		tags["status_BOOST"] = "true"
 	}
-	if choice.Contains("OL", statuses) {
+	if slices.Contains(statuses, "OL") {
 		status |= 1 << 3
 		tags["status_OL"] = "true"
 	}
-	if choice.Contains("OB", statuses) {
+	if slices.Contains(statuses, "OB") {
 		status |= 1 << 4
 		tags["status_OB"] = "true"
 	}
-	if choice.Contains("OVER", statuses) {
+	if slices.Contains(statuses, "OVER") {
 		status |= 1 << 5
 		tags["status_OVER"] = "true"
 	}
-	if choice.Contains("LB", statuses) {
+	if slices.Contains(statuses, "LB") {
 		status |= 1 << 6
 		tags["status_LB"] = "true"
 	}
-	if choice.Contains("RB", statuses) {
+	if slices.Contains(statuses, "RB") {
 		status |= 1 << 7
 		tags["status_RB"] = "true"
 	}

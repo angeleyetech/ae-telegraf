@@ -11,18 +11,17 @@ configured nodes.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
-## Secret-store support
+## Secret store support
 
-This plugin supports secrets from secret-stores for the `username` and
+This plugin supports secrets from secret stores for the `username` and
 `password` option.
-See the [secret-store documentation][SECRETSTORE] for more details on how
+See the [secret store documentation][SECRETSTORE] for more details on how
 to use them.
 
 [SECRETSTORE]: ../../../docs/CONFIGURATION.md#secret-store-secrets
@@ -39,13 +38,17 @@ to use them.
   # endpoint = "opc.tcp://localhost:4840"
 
   ## Maximum time allowed to establish a connect to the endpoint.
-  # connect_timeout = "10s"
+  # connect_timeout = "5s"
 
   ## Maximum time allowed for a request over the established connection.
-  # request_timeout = "5s"
+  # request_timeout = "10s"
 
   ## Maximum time that a session shall remain open without activity.
   # session_timeout = "20m"
+
+  ## Preferred locales for the OPC UA session, ordered by priority.
+  ## The server returns LocalizedText values in the first supported locale.
+  # locales = []
 
   ## Retry options for failing reads e.g. due to invalid sessions
   ## If the retry count is zero, the read will fail after the initial attempt.
@@ -63,12 +66,12 @@ to use them.
   ## Security mode, one of "None", "Sign", "SignAndEncrypt", or "auto"
   # security_mode = "auto"
 
-  ## Path to cert.pem. Required when security mode or policy isn't "None".
-  ## If cert path is not supplied, self-signed cert and key will be generated.
+  ## Path to client certificate and private key files, must be specified together.
+  ## If none of the options are specified, a temporary self-signed certificate
+  ## will be created. If the options are specified but the files do not exist, a
+  ## self-signed certificate will be created and stored permanently at the
+  ## given locations.
   # certificate = "/etc/telegraf/cert.pem"
-
-  ## Path to private key.pem. Required when security mode or policy isn't "None".
-  ## If key path is not supplied, self-signed cert and key will be generated.
   # private_key = "/etc/telegraf/key.pem"
 
   ## Path to additional, explicitly trusted certificate for the remote endpoint
@@ -101,19 +104,34 @@ to use them.
 
   ## Node ID configuration
   ## name              - field name to use in the output
+  ## id                - OPC UA node ID string (e.g., "ns=0;i=2262" or "nsu=http://...;s=Name")
   ## namespace         - OPC UA namespace of the node (integer value 0 thru 3)
+  ## namespace_uri     - OPC UA namespace URI (alternative to namespace for stable references)
   ## identifier_type   - OPC UA ID type (s=string, i=numeric, g=guid, b=opaque)
   ## identifier        - OPC UA ID (tag as shown in opcua browser)
   ## default_tags      - extra tags to be added to the output metric (optional)
   ##
+  ## Use EITHER 'id' OR the combination of 'namespace/namespace_uri' + 'identifier_type' + 'identifier'
   ## Use either the inline notation or the bracketed notation, not both.
 
-  ## Inline notation (default_tags not supported yet)
+  ## Inline notation using id string (recommended for simplicity)
+  # nodes = [
+  #   {name="ProductUri", id="ns=0;i=2262"},
+  #   {name="ServerState", id="ns=0;i=2259"},
+  # ]
+
+  ## Inline notation using individual fields (default_tags not supported yet)
   # nodes = [
   #   {name="", namespace="", identifier_type="", identifier=""},
   # ]
 
-  ## Bracketed notation
+  ## Bracketed notation using id string
+  # [[inputs.opcua.nodes]]
+  #   name = "ProductUri"
+  #   id = "ns=0;i=2262"
+  #   default_tags = { tag1 = "value1", tag2 = "value2" }
+
+  ## Bracketed notation using individual fields
   # [[inputs.opcua.nodes]]
   #   name = "node1"
   #   namespace = ""
@@ -124,6 +142,12 @@ to use them.
   # [[inputs.opcua.nodes]]
   #   name = "node2"
   #   namespace = ""
+  #   identifier_type = ""
+  #   identifier = ""
+  #
+  # [[inputs.opcua.nodes]]
+  #   name = "node3"
+  #   namespace_uri = "http://opcfoundation.org/UA/"
   #   identifier_type = ""
   #   identifier = ""
 
@@ -145,8 +169,12 @@ to use them.
   ## namespace, this is used.
   # namespace =
 
+  ## Group default namespace URI. Alternative to namespace for stable references.
+  ## If a node in the group doesn't set its namespace_uri, this is used.
+  # namespace_uri =
+
   ## Group default identifier type. If a node in the group doesn't set its
-  ## namespace, this is used.
+  ## identifier_type, this is used.
   # identifier_type =
 
   ## Default tags that are applied to every node in this group. Can be
@@ -177,6 +205,42 @@ to use them.
   #   identifier_type = ""
   #   identifier = ""
 
+  ## Browse-based discovery
+  ## Walks the server's address space using the Browse service and matches
+  ## browse paths against glob patterns to discover Variable nodes
+  ## automatically. Backwards compatible: when no paths are configured the
+  ## existing nodes/group configuration is used unchanged.
+  # [inputs.opcua.browse]
+  #   ## Starting node for the browse walk. Defaults to the standard Objects
+  #   ## folder when empty.
+  #   # root = "ns=0;i=85"
+  #
+  #   ## Maximum tree depth descended below the root. 0 means unlimited.
+  #   # depth = 0
+  #
+  #   ## Maximum number of discovered nodes. 0 means unlimited.
+  #   # max_nodes = 0
+  #
+  #   ## Number of nodes browsed per Browse request. 0 falls back to the
+  #   ## built-in default. Lower values reduce per-RPC payload at the cost
+  #   ## of more round trips; raise for fast servers and large trees.
+  #   # batch_size = 0
+  #
+  #   ## Pattern-based discovery rules. Each path defines one glob pattern
+  #   ## over browse-path segments. Pattern syntax:
+  #   ##   *       any single segment (or any chars within a segment)
+  #   ##   **      zero or more segments (recursive descent)
+  #   ##   ?       single character within a segment
+  #   ##   [abc]   character class within a segment
+  #   ##   {a,b}   alternation: any of the comma-separated alternatives
+  #   ##   \       escapes the next character
+  #   ## Multiple paths may be configured; a node matching multiple patterns
+  #   ## appears in each matching group.
+  #   # [[inputs.opcua.browse.paths]]
+  #   #   pattern = "Server/**"
+  #   #   name = "server_vars"
+  #   #   default_tags = { source = "browse" }
+
   ## Enable workarounds required by some devices to work correctly
   # [inputs.opcua.workarounds]
   #   ## Set additional valid status codes, StatusOK (0x0) is always considered valid
@@ -187,6 +251,48 @@ to use them.
   #   # use_unregistered_reads = false
 ```
 
+### Client Certificate Configuration
+
+When using security modes other than "None", Telegraf acts as an OPC UA client
+and requires a client certificate to authenticate itself to the server. The
+plugin supports three certificate management approaches:
+
+#### Temporary Self-Signed Certificates (Default)
+
+If both `certificate` and `private_key` options are left empty or commented
+out, Telegraf will automatically generate a self-signed certificate in a
+temporary directory on each startup.
+
+> [!NOTE]
+> These certificates are recreated on every Telegraf restart, requiring
+> re-authorization by the OPC UA server each time. This is suitable for testing
+> but not recommended for production environments.
+
+#### Persistent Self-Signed Certificates (Recommended for Testing)
+
+To maintain the same client identity across restarts, specify paths for both
+`certificate` and `private_key`. If the files don't exist, Telegraf will
+generate them at the specified locations and reuse them on subsequent restarts.
+
+> [!IMPORTANT]
+> Ensure Telegraf has write permissions to the specified paths. On first run,
+> Telegraf will generate the certificates and log their locations. On subsequent
+> restarts, Telegraf will reuse the existing certificates, preventing the need
+> to re-authorize the client in the server's trust store.
+
+#### Manual Certificate Management (Production)
+
+For production environments, manually generate and deploy certificates using
+your organization's PKI infrastructure. Place the certificate and private key
+files at the configured paths before starting Telegraf. If both files exist,
+Telegraf will use them without modification.
+
+#### Certificate Validation Rules
+
+- Both `certificate` and `private_key` must be specified together, or both
+  must be empty
+- If one file exists but the other doesn't, Telegraf will return an error
+
 ## Node Configuration
 
 An OPC UA node ID may resemble: "ns=3;s=Temperature". In this example:
@@ -196,12 +302,28 @@ An OPC UA node ID may resemble: "ns=3;s=Temperature". In this example:
   `identifier` value is 'Temperature'
 - This example temperature node has a value of 79.0
 
-To gather data from this node enter the following line into the 'nodes'
-property above:
+### Using `id` String (Recommended)
+
+You can specify nodes using the standard OPC UA node ID string format directly:
 
 ```text
-{field_name="temp", namespace="3", identifier_type="s", identifier="Temperature"},
+{name="temp", id="ns=3;s=Temperature"},
 ```
+
+This is simpler and matches the format shown in OPC UA browsers.
+
+### Using Individual Fields
+
+Alternatively, you can specify each component separately:
+
+```text
+{name="temp", namespace="3", identifier_type="s", identifier="Temperature"},
+```
+
+> [!NOTE]
+> Use either `id` OR the combination of
+> `namespace`/`namespace_uri` + `identifier_type` + `identifier`.
+> Do not mix both formats for the same node.
 
 This node configuration produces a metric like this:
 
@@ -223,13 +345,60 @@ using indexed keys. For example:
 opcua,id=ns\=3;s\=Temperature temp[0]=79.0,temp[1]=38.9,Quality="OK (0x0)",DataType="Float" 1597820490000000000
 ```
 
+### Namespace Index vs Namespace URI
+
+OPC UA supports two ways to specify namespaces:
+
+1. **Namespace Index** (`namespace`): An integer (0-3 or higher) that references
+   a position in the server's namespace array. This is simpler but can change if
+   the server is restarted or reconfigured.
+
+2. **Namespace URI** (`namespace_uri`): A string URI that uniquely identifies
+   the namespace. This is more stable across server restarts but requires the
+   plugin to fetch the namespace array from the server to resolve the URI to an
+   index.
+
+**When to use namespace index:**
+
+- For standard OPC UA namespaces (0 = OPC UA, 1 = Local Server)
+- When namespace stability is not a concern
+- For simpler configuration
+
+**When to use namespace URI:**
+
+- When you need consistent node references across server restarts
+- For production environments where namespace indices might change
+- When working with vendor-specific namespaces
+
+**Example using namespace URI:**
+
+```toml
+[[inputs.opcua.nodes]]
+  name = "ServerStatus"
+  namespace_uri = "http://opcfoundation.org/UA/"
+  identifier_type = "i"
+  identifier = "2256"
+```
+
+This produces the same node ID internally as:
+
+```toml
+[[inputs.opcua.nodes]]
+  name = "ServerStatus"
+  namespace = "0"
+  identifier_type = "i"
+  identifier = "2256"
+```
+
+Note: You must specify either `namespace` or `namespace_uri`, not both.
+
 ## Group Configuration
 
-Groups can set default values for the namespace, identifier type, and
-tags settings.  The default values apply to all the nodes in the
-group.  If a default is set, a node may omit the setting altogether.
-This simplifies node configuration, especially when many nodes share
-the same namespace or identifier type.
+Groups can set default values for the namespace (index or URI), identifier type,
+and tags settings. The default values apply to all the nodes in the group. If a
+default is set, a node may omit the setting altogether. This simplifies node
+configuration, especially when many nodes share the same namespace or identifier
+type.
 
 The output metric will include tags set in the group and the node.  If
 a tag with the same name is set in both places, the tag value from the
@@ -290,6 +459,65 @@ Most OPC UA servers provide their certificate through their management interface
 or configuration directory. Consult your OPC UA server's documentation to locate
 the certificate, typically found in the server's PKI (Public Key Infrastructure)
 directory. Alternatively, you can export the certificate using OPC UA client tools.
+
+## Browse-based Discovery
+
+Large deployments often expose thousands of nodes that share a regular
+naming scheme. Instead of enumerating each node, the `[inputs.opcua.browse]`
+section walks the server's address space with the Browse service and
+matches discovered Variable nodes against glob patterns over their browse
+paths. Discovered nodes are folded into the existing pipeline, so the
+configuration stays backwards compatible with any explicit `nodes` or
+`group` entries.
+
+```toml
+[inputs.opcua.browse]
+  # Starting node for the browse walk (default: Objects folder).
+  root = "ns=0;i=85"
+
+  # Optional safety limits.
+  depth = 10
+  max_nodes = 50000
+
+  # Optional per-RPC tuning.
+  batch_size = 50
+
+  [[inputs.opcua.browse.paths]]
+    pattern = "Plant1/*/MV*"
+    name = "motor_valves"
+    default_tags = { plant = "plant1" }
+
+  [[inputs.opcua.browse.paths]]
+    pattern = "**/Temperature"
+    name = "temperatures"
+```
+
+### Pattern Syntax
+
+Patterns are compiled by Telegraf's `filter` package with `/` as the segment
+separator:
+
+| Token   | Meaning                                              |
+|---------|------------------------------------------------------|
+| literal | exact string match for one segment                   |
+| `*`     | any single segment, or any characters in a segment   |
+| `**`    | zero or more segments (recursive descent)            |
+| `?`     | single character within a segment                    |
+| `[abc]` | character class within a segment                     |
+| `{a,b}` | alternation: any of the comma-separated alternatives |
+| `\`     | escapes the next character                           |
+
+A node matched by multiple patterns appears in each matching group;
+duplicate `(metric_name, field_name, tags)` combinations are rejected at
+mapping time.
+
+> [!NOTE]
+> Browse runs on every connect, so address-space changes (nodes added or
+> removed, renumbered namespaces) are picked up on reconnect without
+> restarting Telegraf.
+>
+> The `root` option accepts node-ID strings (`ns=N;...`). Path-string
+> form and namespace-URI (`nsu=...`) form are not currently supported.
 
 ## Connection Service
 

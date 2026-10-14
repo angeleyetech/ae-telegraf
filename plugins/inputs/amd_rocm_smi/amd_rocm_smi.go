@@ -101,9 +101,9 @@ type sysInfo struct {
 	DriverVersion string `json:"Driver version"`
 }
 
-type metric struct {
+type gpuMetric struct {
 	tags   map[string]string
-	fields map[string]interface{}
+	fields map[string]any
 }
 
 func (*ROCmSMI) SampleConfig() string {
@@ -179,8 +179,8 @@ func (rsmi *ROCmSMI) pollROCmSMI() ([]byte, error) {
 	return internal.StdOutputTimeout(cmd, time.Duration(rsmi.Timeout))
 }
 
-func genTagsFields(gpus map[string]gpu, system map[string]sysInfo) []metric {
-	metrics := make([]metric, 0, len(gpus))
+func genTagsFields(gpus map[string]gpu, system map[string]sysInfo) []gpuMetric {
+	metrics := make([]gpuMetric, 0, len(gpus))
 	for cardID := range gpus {
 		if strings.Contains(cardID, "card") {
 			tags := map[string]string{
@@ -201,7 +201,7 @@ func genTagsFields(gpus map[string]gpu, system map[string]sysInfo) []metric {
 
 			setTagIfUsed(tags, "gpu_unique_id", payload.GpuUniqueID)
 
-			fields := make(map[string]interface{}, 20)
+			fields := make(map[string]any, 20)
 			setIfUsed("int", fields, "driver_version", strings.ReplaceAll(system["system"].DriverVersion, ".", ""))
 			setIfUsed("int", fields, "fan_speed", payload.GpuFanSpeedPercentage)
 			setIfUsed("int64", fields, "memory_total", payload.GpuVRAMTotalMemory)
@@ -224,7 +224,7 @@ func genTagsFields(gpus map[string]gpu, system map[string]sysInfo) []metric {
 			setIfUsed("str", fields, "card_model", payload.GpuCardModel)
 			setIfUsed("str", fields, "card_vendor", payload.GpuCardVendor)
 
-			metrics = append(metrics, metric{tags, fields})
+			metrics = append(metrics, gpuMetric{tags, fields})
 		}
 	}
 	return metrics
@@ -258,7 +258,7 @@ func setTagIfUsed(m map[string]string, k, v string) {
 	}
 }
 
-func setIfUsed(t string, m map[string]interface{}, k, v string) {
+func setIfUsed(t string, m map[string]any, k, v string) {
 	vals := strings.Fields(v)
 	if len(vals) < 1 {
 		return

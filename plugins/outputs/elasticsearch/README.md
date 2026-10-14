@@ -203,10 +203,9 @@ clients to properly work when the version needs to be checked. To enable
 compatibility mode users need to set the `override_main_response_version` to
 `true`.
 
-On existing clusters run:
+On existing clusters run `PUT /_cluster/settings` with
 
 ```json
-PUT /_cluster/settings
 {
   "persistent" : {
     "compatibility.override_main_response_version" : true
@@ -214,10 +213,11 @@ PUT /_cluster/settings
 }
 ```
 
-And on new clusters set the option to true under advanced options:
+And on new clusters execute
+`POST https://es.us-east-1.amazonaws.com/2021-01-01/opensearch/upgradeDomain`and
+set the option to `true` under advanced options
 
 ```json
-POST https://es.us-east-1.amazonaws.com/2021-01-01/opensearch/upgradeDomain
 {
   "DomainName": "domain-name",
   "TargetVersion": "OpenSearch_1.0",
@@ -231,18 +231,17 @@ POST https://es.us-east-1.amazonaws.com/2021-01-01/opensearch/upgradeDomain
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
-## Secret-store support
+## Secret store support
 
-This plugin supports secrets from secret-stores for the `username`,
+This plugin supports secrets from secret stores for the `username`,
 `password` and `auth_bearer_token` option.
-See the [secret-store documentation][SECRETSTORE] for more details on how
+See the [secret store documentation][SECRETSTORE] for more details on how
 to use them.
 
 [SECRETSTORE]: ../../../docs/CONFIGURATION.md#secret-store-secrets

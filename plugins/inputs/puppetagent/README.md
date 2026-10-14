@@ -11,10 +11,9 @@ from the local last-run-summary file.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -24,8 +23,15 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
 # Reads last_run_summary.yaml file and converts to measurements
 [[inputs.puppetagent]]
   ## Location of puppet last run summary file
+  ## Use the following path for puppet version 7+ ($publicdir/last_run_summary.yaml)
+  ##   location = "/opt/puppetlabs/puppet/public/last_run_summary.yaml"
   location = "/var/lib/puppet/state/last_run_summary.yaml"
 ```
+
+If you use a distro packaged puppet the `$publicdir` might be different from above.
+
+By default, this file is not readable by the `telegraf` user.
+You can adjust file permissions by configuring the `lastrunfile` setting in Puppet.
 
 ## Metrics
 

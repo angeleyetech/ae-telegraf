@@ -27,10 +27,10 @@ func TestGeo(t *testing.T) {
 	err := plugin.Init()
 	require.NoError(t, err)
 
-	m := testutil.MustMetric(
+	m := metric.New(
 		"mta",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"lat": 40.878738,
 			"lon": -72.517572,
 		},
@@ -38,12 +38,12 @@ func TestGeo(t *testing.T) {
 	)
 
 	expected := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"mta",
 			map[string]string{
 				"s2_cell_id": "89e8ed4",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"lat": 40.878738,
 				"lon": -72.517572,
 			},
@@ -59,9 +59,9 @@ func TestGeo(t *testing.T) {
 
 func TestTracking(t *testing.T) {
 	inputRaw := []telegraf.Metric{
-		metric.New("foo", map[string]string{}, map[string]interface{}{"lat": 40.878738, "lon": 72.517572}, time.Unix(0, 0)),
-		metric.New("bar", map[string]string{}, map[string]interface{}{"lat": 42.842451, "lon": 74.211361}, time.Unix(0, 0)),
-		metric.New("baz", map[string]string{}, map[string]interface{}{"lat": 32.300963, "lon": 14.123442}, time.Unix(0, 0)),
+		metric.New("foo", map[string]string{}, map[string]any{"lat": 40.878738, "lon": 72.517572}, time.Unix(0, 0)),
+		metric.New("bar", map[string]string{}, map[string]any{"lat": 42.842451, "lon": 74.211361}, time.Unix(0, 0)),
+		metric.New("baz", map[string]string{}, map[string]any{"lat": 32.300963, "lon": 14.123442}, time.Unix(0, 0)),
 	}
 
 	var mu sync.Mutex
@@ -82,19 +82,19 @@ func TestTracking(t *testing.T) {
 		metric.New(
 			"foo",
 			map[string]string{"s2_cell_id": "3"},
-			map[string]interface{}{"lat": 40.878738, "lon": 72.517572},
+			map[string]any{"lat": 40.878738, "lon": 72.517572},
 			time.Unix(0, 0),
 		),
 		metric.New(
 			"bar",
 			map[string]string{"s2_cell_id": "3"},
-			map[string]interface{}{"lat": 42.842451, "lon": 74.211361},
+			map[string]any{"lat": 42.842451, "lon": 74.211361},
 			time.Unix(0, 0),
 		),
 		metric.New(
 			"baz",
 			map[string]string{"s2_cell_id": "1"},
-			map[string]interface{}{"lat": 32.300963, "lon": 14.123442},
+			map[string]any{"lat": 32.300963, "lon": 14.123442},
 			time.Unix(0, 0),
 		),
 	}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/internal"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/models"
 	"github.com/influxdata/telegraf/testutil"
 )
@@ -99,14 +100,14 @@ func TestGatherValidJSON(t *testing.T) {
 			name:     "Vega 10 XT",
 			filename: "vega-10-XT.json",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x6861",
 						"gpu_unique_id": "0x2150e7d042a1124",
 						"name":          "card0",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0xc1e",
 						"card_vendor":                 "Advanced",
 						"driver_version":              5925,
@@ -131,14 +132,14 @@ func TestGatherValidJSON(t *testing.T) {
 			name:     "Vega 20 WKS GL-XE [Radeon Pro VII]",
 			filename: "vega-20-WKS-GL-XE.json",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x66a1",
 						"gpu_unique_id": "0x2f048617326b1ea",
 						"name":          "card0",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x834",
 						"card_series":                 "Radeon",
 						"card_vendor":                 "Advanced",
@@ -167,14 +168,14 @@ func TestGatherValidJSON(t *testing.T) {
 			name:     "mi100 + ROCm 571",
 			filename: "mi100_rocm571.json",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x738c",
 						"gpu_unique_id": "N/A",
 						"name":          "card0",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x0c34",
 						"card_series":                 "Arcturus",
 						"card_vendor":                 "Advanced",
@@ -195,14 +196,14 @@ func TestGatherValidJSON(t *testing.T) {
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x738c",
 						"gpu_unique_id": "N/A",
 						"name":          "card1",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x0c34",
 						"card_series":                 "Arcturus",
 						"card_vendor":                 "Advanced",
@@ -223,14 +224,14 @@ func TestGatherValidJSON(t *testing.T) {
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x738c",
 						"gpu_unique_id": "N/A",
 						"name":          "card2",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x0c34",
 						"card_series":                 "Arcturus",
 						"card_vendor":                 "Advanced",
@@ -251,14 +252,14 @@ func TestGatherValidJSON(t *testing.T) {
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x738c",
 						"gpu_unique_id": "N/A",
 						"name":          "card3",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x0c34",
 						"card_series":                 "Arcturus",
 						"card_vendor":                 "Advanced",
@@ -279,14 +280,14 @@ func TestGatherValidJSON(t *testing.T) {
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x738c",
 						"gpu_unique_id": "N/A",
 						"name":          "card4",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x0c34",
 						"card_series":                 "Arcturus",
 						"card_vendor":                 "Advanced",
@@ -307,14 +308,14 @@ func TestGatherValidJSON(t *testing.T) {
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x738c",
 						"gpu_unique_id": "N/A",
 						"name":          "card5",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x0c34",
 						"card_series":                 "Arcturus",
 						"card_vendor":                 "Advanced",
@@ -341,14 +342,14 @@ func TestGatherValidJSON(t *testing.T) {
 			name:     "mi100 + ROCm 602",
 			filename: "mi100_rocm602.json",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x738c",
 						"gpu_unique_id": "0x79ccd55167a2124a",
 						"name":          "card0",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x0c34",
 						"card_series":                 "Arcturus",
 						"card_vendor":                 "Advanced",
@@ -369,14 +370,14 @@ func TestGatherValidJSON(t *testing.T) {
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x738c",
 						"gpu_unique_id": "0x4edfb117a17a07d",
 						"name":          "card1",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x0c34",
 						"card_series":                 "Arcturus",
 						"card_vendor":                 "Advanced",
@@ -397,14 +398,14 @@ func TestGatherValidJSON(t *testing.T) {
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x738c",
 						"gpu_unique_id": "0xd4a9ec48d03d261d",
 						"name":          "card2",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x0c34",
 						"card_series":                 "Arcturus",
 						"card_vendor":                 "Advanced",
@@ -425,14 +426,14 @@ func TestGatherValidJSON(t *testing.T) {
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x738c",
 						"gpu_unique_id": "0x1b9dd972253c3736",
 						"name":          "card3",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x0c34",
 						"card_series":                 "Arcturus",
 						"card_vendor":                 "Advanced",
@@ -459,14 +460,14 @@ func TestGatherValidJSON(t *testing.T) {
 			name:     "rx6700xt + ROCm 430",
 			filename: "rx6700xt_rocm430.json",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x73df",
 						"gpu_unique_id": "N/A",
 						"name":          "card0",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x1002",
 						"card_series":                 "0x1002",
 						"card_vendor":                 "0x1002",
@@ -494,14 +495,14 @@ func TestGatherValidJSON(t *testing.T) {
 			name:     "rx6700xt + ROCm 571",
 			filename: "rx6700xt_rocm571.json",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x73df",
 						"gpu_unique_id": "N/A",
 						"name":          "card0",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x6601",
 						"card_series":                 "Navi",
 						"card_vendor":                 "Advanced",
@@ -529,14 +530,14 @@ func TestGatherValidJSON(t *testing.T) {
 			name:     "rx6700xt + ROCm 602",
 			filename: "rx6700xt_rocm602.json",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x73df",
 						"gpu_unique_id": "N/A",
 						"name":          "card0",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x6601",
 						"card_series":                 "Navi",
 						"card_vendor":                 "Advanced",
@@ -563,14 +564,14 @@ func TestGatherValidJSON(t *testing.T) {
 			name:     "rx6700xt + ROCm 612",
 			filename: "rx6700xt_rocm612.json",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"amd_rocm_smi",
 					map[string]string{
 						"gpu_id":        "0x73df",
 						"gpu_unique_id": "N/A",
 						"name":          "card0",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"card_model":                  "0x73df",
 						"card_series":                 "Navi",
 						"card_vendor":                 "Advanced",

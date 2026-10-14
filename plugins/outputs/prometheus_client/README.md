@@ -12,17 +12,16 @@ by a Prometheus server.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
-## Secret-store support
+## Secret store support
 
-This plugin supports secrets from secret-stores for the `basic_password` option.
-See the [secret-store documentation][SECRETSTORE] for more details on how
+This plugin supports secrets from secret stores for the `basic_password` option.
+See the [secret store documentation][SECRETSTORE] for more details on how
 to use them.
 
 [SECRETSTORE]: ../../../docs/CONFIGURATION.md#secret-store-secrets
@@ -69,6 +68,12 @@ to use them.
   ## Send string metrics as Prometheus labels.
   ## Unless set to false all string metrics will be sent as labels.
   # string_as_label = true
+
+  ## Control how metric names and label names are sanitized.
+  ## The default "legacy" keeps ASCII-only Prometheus name rules.
+  ## Set to "utf8" to allow UTF-8 metric and label names.
+  ## Valid options: "legacy", "utf8"
+  # name_sanitization = "legacy"
 
   ## If set, enable TLS with the given certificate.
   # tls_cert = "/etc/ssl/telegraf.crt"

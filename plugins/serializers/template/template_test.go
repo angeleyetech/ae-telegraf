@@ -8,7 +8,7 @@ import (
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/metric"
-	"github.com/influxdata/telegraf/plugins/serializers"
+	"github.com/influxdata/telegraf/testutil/serializers"
 )
 
 func TestSerializer(t *testing.T) {
@@ -24,7 +24,7 @@ func TestSerializer(t *testing.T) {
 			input: metric.New(
 				"cpu",
 				map[string]string{},
-				map[string]interface{}{},
+				map[string]any{},
 				time.Unix(100, 0),
 			),
 			template: "{{ .Name }}",
@@ -35,7 +35,7 @@ func TestSerializer(t *testing.T) {
 			input: metric.New(
 				"cpu",
 				map[string]string{},
-				map[string]interface{}{},
+				map[string]any{},
 				time.Unix(100, 0),
 			),
 			template: "{{ .Time.Unix }}",
@@ -46,7 +46,7 @@ func TestSerializer(t *testing.T) {
 			input: metric.New(
 				"cpu",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"x": 42.0,
 					"y": 43.0,
 				},
@@ -63,7 +63,7 @@ func TestSerializer(t *testing.T) {
 					"host": "localhost",
 					"cpu":  "CPU0",
 				},
-				map[string]interface{}{},
+				map[string]any{},
 				time.Unix(100, 0),
 			),
 			template: `{{ .Tag "cpu" }}`,
@@ -74,7 +74,7 @@ func TestSerializer(t *testing.T) {
 			input: metric.New(
 				"cpu",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"x": 42.0,
 					"y": 43.0,
 				},
@@ -91,7 +91,7 @@ func TestSerializer(t *testing.T) {
 					"host": "localhost",
 					"cpu":  "CPU0",
 				},
-				map[string]interface{}{},
+				map[string]any{},
 				time.Unix(100, 0),
 			),
 			template: `{{ range $k, $v := .Tags }}{{$k}}={{$v}},{{end}}`,
@@ -105,7 +105,7 @@ func TestSerializer(t *testing.T) {
 					"host": "localhost",
 					"cpu":  "CPU0",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"x": 42.0,
 					"y": 43.0,
 				},
@@ -121,7 +121,7 @@ func TestSerializer(t *testing.T) {
 				map[string]string{
 					"tag1": "tag",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42.0,
 				},
 				time.Unix(0, 0),
@@ -158,7 +158,7 @@ func TestSerializeBatch(t *testing.T) {
 	m := metric.New(
 		"cpu",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": 42.0,
 		},
 		time.Unix(0, 0),
@@ -181,10 +181,55 @@ func TestSerializeBatch(t *testing.T) {
 	require.Equal(t, "0: cpu 42\n", string(singleBuf))
 }
 
+func TestSerializeTrackingMetric(t *testing.T) {
+	m := metric.New(
+		"cpu",
+		map[string]string{},
+		map[string]any{
+			"value": 42.0,
+		},
+		time.Unix(0, 0),
+	)
+	tm, _ := metric.WithTracking(m, func(_ telegraf.DeliveryInfo) {})
+
+	s := &Serializer{Template: "{{ .Name }}"}
+	require.NoError(t, s.Init())
+
+	// Serialize should handle tracking metrics
+	buf, err := s.Serialize(tm)
+	require.NoError(t, err)
+	require.Equal(t, "cpu", string(buf))
+
+	// SerializeBatch should also handle tracking metrics
+	batchBuf, err := s.SerializeBatch([]telegraf.Metric{tm})
+	require.NoError(t, err)
+	require.Equal(t, "cpu", string(batchBuf))
+}
+
+func TestSerializeBatchTrackingMetrics(t *testing.T) {
+	m := metric.New(
+		"cpu",
+		map[string]string{},
+		map[string]any{
+			"value": 42.0,
+		},
+		time.Unix(0, 0),
+	)
+	tm, _ := metric.WithTracking(m, func(_ telegraf.DeliveryInfo) {})
+
+	s := &Serializer{BatchTemplate: `{{ range $index, $metric := . }}{{$index}}: {{$metric.Name}} {{$metric.Field "value"}}
+{{end}}`}
+	require.NoError(t, s.Init())
+
+	buf, err := s.SerializeBatch([]telegraf.Metric{tm, tm})
+	require.NoError(t, err)
+	require.Equal(t, "0: cpu 42\n1: cpu 42\n", string(buf))
+}
+
 func BenchmarkSerialize(b *testing.B) {
 	s := &Serializer{}
 	require.NoError(b, s.Init())
-	metrics := serializers.BenchmarkMetrics(b)
+	metrics := serializers.BenchmarkMetrics()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := s.Serialize(metrics[i%len(metrics)])
@@ -195,7 +240,7 @@ func BenchmarkSerialize(b *testing.B) {
 func BenchmarkSerializeBatch(b *testing.B) {
 	s := &Serializer{}
 	require.NoError(b, s.Init())
-	m := serializers.BenchmarkMetrics(b)
+	m := serializers.BenchmarkMetrics()
 	metrics := m[:]
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

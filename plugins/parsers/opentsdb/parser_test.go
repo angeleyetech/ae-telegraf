@@ -27,10 +27,10 @@ func TestParseLine(t *testing.T) {
 		{
 			name:  "minimal case",
 			input: "put sys.cpu.user " + strTimeSec + " 50",
-			expected: testutil.MustMetric(
+			expected: metric.New(
 				"sys.cpu.user",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": float64(50),
 				},
 				testTimeSec,
@@ -39,10 +39,10 @@ func TestParseLine(t *testing.T) {
 		{
 			name:  "millisecond timestamp",
 			input: "put sys.cpu.user " + strTimeMilli + " 50",
-			expected: testutil.MustMetric(
+			expected: metric.New(
 				"sys.cpu.user",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": float64(50),
 				},
 				testTimeMilli,
@@ -51,10 +51,10 @@ func TestParseLine(t *testing.T) {
 		{
 			name:  "floating point value",
 			input: "put sys.cpu.user " + strTimeSec + " 42.5",
-			expected: testutil.MustMetric(
+			expected: metric.New(
 				"sys.cpu.user",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": float64(42.5),
 				},
 				testTimeSec,
@@ -63,12 +63,12 @@ func TestParseLine(t *testing.T) {
 		{
 			name:  "single tag",
 			input: "put sys.cpu.user " + strTimeSec + " 42.5 host=webserver01",
-			expected: testutil.MustMetric(
+			expected: metric.New(
 				"sys.cpu.user",
 				map[string]string{
 					"host": "webserver01",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"value": float64(42.5),
 				},
 				testTimeSec,
@@ -77,13 +77,13 @@ func TestParseLine(t *testing.T) {
 		{
 			name:  "double tags",
 			input: "put sys.cpu.user " + strTimeSec + " 42.5 host=webserver01 cpu=7",
-			expected: testutil.MustMetric(
+			expected: metric.New(
 				"sys.cpu.user",
 				map[string]string{
 					"host": "webserver01",
 					"cpu":  "7",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"value": float64(42.5),
 				},
 				testTimeSec,
@@ -117,13 +117,13 @@ func TestParse(t *testing.T) {
 			name:  "single line with no newline",
 			input: []byte("put sys.cpu.user " + strTimeSec + " 42.5 host=webserver01 cpu=7"),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"sys.cpu.user",
 					map[string]string{
 						"host": "webserver01",
 						"cpu":  "7",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": float64(42.5),
 					},
 					testTimeSec,
@@ -134,13 +134,13 @@ func TestParse(t *testing.T) {
 			name:  "single line with LF",
 			input: []byte("put sys.cpu.user " + strTimeSec + " 42.5 host=webserver01 cpu=7\n"),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"sys.cpu.user",
 					map[string]string{
 						"host": "webserver01",
 						"cpu":  "7",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": float64(42.5),
 					},
 					testTimeSec,
@@ -151,13 +151,13 @@ func TestParse(t *testing.T) {
 			name:  "single line with CR+LF",
 			input: []byte("put sys.cpu.user " + strTimeSec + " 42.5 host=webserver01 cpu=7\r\n"),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"sys.cpu.user",
 					map[string]string{
 						"host": "webserver01",
 						"cpu":  "7",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": float64(42.5),
 					},
 					testTimeSec,
@@ -169,24 +169,24 @@ func TestParse(t *testing.T) {
 			input: []byte("put sys.cpu.user " + strTimeSec + " 42.5 host=webserver01 cpu=7\r\n" +
 				"put sys.cpu.user " + strTimeSec + " 53.5 host=webserver02 cpu=3\r\n"),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"sys.cpu.user",
 					map[string]string{
 						"host": "webserver01",
 						"cpu":  "7",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": float64(42.5),
 					},
 					testTimeSec,
 				),
-				testutil.MustMetric(
+				metric.New(
 					"sys.cpu.user",
 					map[string]string{
 						"host": "webserver02",
 						"cpu":  "3",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": float64(53.5),
 					},
 					testTimeSec,
@@ -201,24 +201,24 @@ func TestParse(t *testing.T) {
 					"put sys.cpu.user " + strTimeSec + " 53.5 host=webserver02 cpu=3\r\n",
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"sys.cpu.user",
 					map[string]string{
 						"host": "webserver01",
 						"cpu":  "7",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": float64(42.5),
 					},
 					testTimeSec,
 				),
-				testutil.MustMetric(
+				metric.New(
 					"sys.cpu.user",
 					map[string]string{
 						"host": "webserver02",
 						"cpu":  "3",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": float64(53.5),
 					},
 					testTimeSec,
@@ -257,14 +257,14 @@ func TestParse_DefaultTags(t *testing.T) {
 				"foo": "bar",
 			},
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"sys.cpu.user",
 					map[string]string{
 						"foo":  "bar",
 						"host": "webserver01",
 						"cpu":  "7",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": float64(42.5),
 					},
 					testTimeSec,
@@ -279,7 +279,7 @@ func TestParse_DefaultTags(t *testing.T) {
 				"foo2": "bar2",
 			},
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"sys.cpu.user",
 					map[string]string{
 						"foo1": "bar1",
@@ -287,7 +287,7 @@ func TestParse_DefaultTags(t *testing.T) {
 						"host": "webserver01",
 						"cpu":  "7",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": float64(42.5),
 					},
 					testTimeSec,
@@ -324,7 +324,7 @@ func TestBenchmarkData(t *testing.T) {
 				"tags_platform": "python",
 				"tags_sdkver":   "3.11.4",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 4.0,
 			},
 			time.Unix(1653643420, 0),
@@ -336,7 +336,7 @@ func TestBenchmarkData(t *testing.T) {
 				"tags_platform": "python",
 				"tags_sdkver":   "3.11.5",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 5.0,
 			},
 			time.Unix(1653643420, 0),

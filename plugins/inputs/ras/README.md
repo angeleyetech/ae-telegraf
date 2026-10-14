@@ -15,10 +15,9 @@ This plugin gathers statistics and error counts provided by the local
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -42,6 +41,8 @@ of problems with SQLite3 database please verify this is still a default option.
   - tags:
     - socket_id
   - fields:
+    - memory_ecc_corrected_errors
+    - memory_ecc_uncorrectable_errors
     - memory_read_corrected_errors
     - memory_read_uncorrectable_errors
     - memory_write_corrected_errors
@@ -71,9 +72,17 @@ following MCE events:
 - microcode_rom_parity_errors
 - unclassified_mce_errors
 
+Overall server error metric
+
+- ras
+  - tags:
+  - fields:
+    - cache_l2_errors
+    - upi_errors
+
 ## Example Output
 
 ```text
-ras,host=ubuntu,socket_id=0 external_mce_base_errors=1i,frc_errors=1i,instruction_tlb_errors=5i,internal_parity_errors=1i,internal_timer_errors=1i,l0_and_l1_cache_errors=7i,memory_read_corrected_errors=25i,memory_read_uncorrectable_errors=0i,memory_write_corrected_errors=5i,memory_write_uncorrectable_errors=0i,microcode_rom_parity_errors=1i,processor_base_errors=7i,processor_bus_errors=1i,smm_handler_code_access_violation_errors=1i,unclassified_mce_base_errors=1i 1598867393000000000
-ras,host=ubuntu level_2_cache_errors=0i,upi_errors=0i 1598867393000000000
+ras,host=ubuntu,socket_id=0 external_mce_base_errors=1i,frc_errors=1i,instruction_tlb_errors=5i,internal_parity_errors=1i,internal_timer_errors=1i,l0_and_l1_cache_errors=7i,memory_ecc_corrected_errors=1i,memory_ecc_uncorrectable_errors=0i,memory_read_corrected_errors=25i,memory_read_uncorrectable_errors=0i,memory_write_corrected_errors=5i,memory_write_uncorrectable_errors=0i,microcode_rom_parity_errors=1i,processor_base_errors=7i,processor_bus_errors=1i,smm_handler_code_access_violation_errors=1i,unclassified_mce_base_errors=1i 1598867393000000000
+ras,host=ubuntu cache_l2_errors=0i,upi_errors=0i 1598867393000000000
 ```

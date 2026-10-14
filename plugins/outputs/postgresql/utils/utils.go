@@ -7,7 +7,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/tracelog"
 
 	"github.com/influxdata/telegraf"
 )
@@ -23,7 +24,7 @@ func TagListToJSON(tagList []*telegraf.Tag) []byte {
 }
 
 func FieldListToJSON(fieldList []*telegraf.Field) ([]byte, error) {
-	fields := make(map[string]interface{}, len(fieldList))
+	fields := make(map[string]any, len(fieldList))
 	for _, field := range fieldList {
 		fields[field.Key] = field.Value
 	}
@@ -54,15 +55,15 @@ type PGXLogger struct {
 	telegraf.Logger
 }
 
-func (l PGXLogger) Log(_ context.Context, level pgx.LogLevel, msg string, data map[string]interface{}) {
+func (l PGXLogger) Log(_ context.Context, level tracelog.LogLevel, msg string, data map[string]any) {
 	switch level {
-	case pgx.LogLevelError:
+	case tracelog.LogLevelError:
 		l.Errorf("PG %s - %+v", msg, data)
-	case pgx.LogLevelWarn:
+	case tracelog.LogLevelWarn:
 		l.Warnf("PG %s - %+v", msg, data)
-	case pgx.LogLevelInfo, pgx.LogLevelNone:
+	case tracelog.LogLevelInfo, tracelog.LogLevelNone:
 		l.Infof("PG %s - %+v", msg, data)
-	case pgx.LogLevelDebug, pgx.LogLevelTrace:
+	case tracelog.LogLevelDebug, tracelog.LogLevelTrace:
 		l.Debugf("PG %s - %+v", msg, data)
 	default:
 		l.Debugf("PG %s - %+v", msg, data)
@@ -83,7 +84,7 @@ func GetTagID(metric telegraf.Metric) int64 {
 
 // WaitGroup is similar to sync.WaitGroup, but allows interruptible waiting (e.g. a timeout).
 type WaitGroup struct {
-	count int32
+	count atomic.Int32
 	done  chan struct{}
 }
 
@@ -99,11 +100,11 @@ func (wg *WaitGroup) Add(i int32) {
 		panic("use of an already-done WaitGroup")
 	default:
 	}
-	atomic.AddInt32(&wg.count, i)
+	wg.count.Add(i)
 }
 
 func (wg *WaitGroup) Done() {
-	i := atomic.AddInt32(&wg.count, -1)
+	i := wg.count.Add(-1)
 	if i == 0 {
 		close(wg.done)
 	}

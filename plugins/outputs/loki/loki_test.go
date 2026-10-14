@@ -17,16 +17,16 @@ import (
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/internal"
-	"github.com/influxdata/telegraf/testutil"
+	"github.com/influxdata/telegraf/metric"
 )
 
 func getMetric() telegraf.Metric {
-	return testutil.MustMetric(
+	return metric.New(
 		"log",
 		map[string]string{
 			"key1": "value1",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"line":  "my log",
 			"field": 3.14,
 		},
@@ -36,23 +36,23 @@ func getMetric() telegraf.Metric {
 
 func getOutOfOrderMetrics() []telegraf.Metric {
 	return []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"log",
 			map[string]string{
 				"key1": "value1",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"line":  "newer log",
 				"field": 3.14,
 			},
 			time.Unix(1230, 0),
 		),
-		testutil.MustMetric(
+		metric.New(
 			"log",
 			map[string]string{
 				"key1": "value1",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"line":  "older log",
 				"field": 3.14,
 			},

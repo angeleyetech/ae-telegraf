@@ -32,7 +32,7 @@ func ParseRawLinesFrom(lines []string, header string) ([]string, error) {
 		return nil, fmt.Errorf("header %q does not exist", header)
 	}
 
-	output := make([]string, 0)
+	output := make([]string, 0, len(lines)-start)
 	for _, line := range lines[start:] {
 		if !strings.HasPrefix(strings.TrimLeft(line, "\t "), "#") {
 			return nil, errors.New("section does not end with trailing empty line")
@@ -66,7 +66,7 @@ func ParseMetricsFrom(lines []string, header string, parser LineParser) ([]teleg
 		return nil, fmt.Errorf("header %q does not exist", header)
 	}
 
-	metrics := make([]telegraf.Metric, 0)
+	metrics := make([]telegraf.Metric, 0, len(lines)-start)
 	for _, line := range lines[start:] {
 		if !strings.HasPrefix(strings.TrimLeft(line, "\t "), "#") {
 			return nil, errors.New("section does not end with trailing empty line")
@@ -115,6 +115,10 @@ func ParseMetricsFromFile(filename string, parser telegraf.Parser) ([]telegraf.M
 		}
 	}
 
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("parsing file %q failed: %w", filename, err)
+	}
+
 	return metrics, nil
 }
 
@@ -136,5 +140,8 @@ func ParseLinesFromFile(filename string) ([]string, error) {
 		lines = append(lines, line)
 	}
 
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("parsing file %q failed: %w", filename, err)
+	}
 	return lines, nil
 }

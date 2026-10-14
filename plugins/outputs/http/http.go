@@ -1,3 +1,4 @@
+//go:generate ../../../tools/config_includer/generator
 //go:generate ../../../tools/readme_config_includer/generator
 package http
 
@@ -11,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,6 +25,7 @@ import (
 	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/internal"
 	common_aws "github.com/influxdata/telegraf/plugins/common/aws"
+	common_gcp "github.com/influxdata/telegraf/plugins/common/gcp"
 	common_http "github.com/influxdata/telegraf/plugins/common/http"
 	"github.com/influxdata/telegraf/plugins/outputs"
 )
@@ -236,11 +239,9 @@ func (h *HTTP) writeMetric(reqBody []byte) error {
 			errorLine = scanner.Text()
 		}
 
-		for _, nonRetryableStatusCode := range h.NonRetryableStatusCodes {
-			if resp.StatusCode == nonRetryableStatusCode {
-				h.Log.Errorf("Received non-retryable status %v. Metrics are lost. body: %s", resp.StatusCode, errorLine)
-				return nil
-			}
+		if slices.Contains(h.NonRetryableStatusCodes, resp.StatusCode) {
+			h.Log.Errorf("Received non-retryable status %v. Metrics are lost. body: %s", resp.StatusCode, errorLine)
+			return nil
 		}
 
 		return fmt.Errorf("when writing to [%s] received status code: %d. body: %s", h.URL, resp.StatusCode, errorLine)
@@ -269,7 +270,12 @@ func (h *HTTP) getAccessToken(ctx context.Context, audience string) (*oauth2.Tok
 		return h.oauth2Token, nil
 	}
 
-	ts, err := idtoken.NewTokenSource(ctx, audience, idtoken.WithCredentialsFile(h.CredentialsFile))
+	credType, err := common_gcp.ParseCredentialType(h.CredentialsFile)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse credentials file type: %w", err)
+	}
+
+	ts, err := idtoken.NewTokenSource(ctx, audience, idtoken.WithAuthCredentialsFile(idtoken.CredentialsType(credType), h.CredentialsFile))
 	if err != nil {
 		return nil, fmt.Errorf("error creating oauth2 token source: %w", err)
 	}

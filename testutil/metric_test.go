@@ -25,7 +25,7 @@ func TestRequireMetricEqual(t *testing.T) {
 						"t1": "v1",
 						"t2": "v2",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"f1": 1,
 						"f2": 3.14,
 						"f3": "v3",
@@ -41,7 +41,7 @@ func TestRequireMetricEqual(t *testing.T) {
 						"t1": "v1",
 						"t2": "v2",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"f1": int64(1),
 						"f2": 3.14,
 						"f3": "v3",
@@ -69,30 +69,30 @@ func TestRequireMetricsEqual(t *testing.T) {
 		{
 			name: "sort metrics option sorts by name",
 			got: []telegraf.Metric{
-				MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{},
+					map[string]any{},
 					time.Unix(0, 0),
 				),
-				MustMetric(
+				metric.New(
 					"net",
 					map[string]string{},
-					map[string]interface{}{},
+					map[string]any{},
 					time.Unix(0, 0),
 				),
 			},
 			want: []telegraf.Metric{
-				MustMetric(
+				metric.New(
 					"net",
 					map[string]string{},
-					map[string]interface{}{},
+					map[string]any{},
 					time.Unix(0, 0),
 				),
-				MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{},
+					map[string]any{},
 					time.Unix(0, 0),
 				),
 			},
@@ -116,36 +116,36 @@ func TestRequireMetricsSubset(t *testing.T) {
 		{
 			name: "subset of metrics",
 			got: []telegraf.Metric{
-				MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{"value": float64(3.14)},
+					map[string]any{"value": float64(3.14)},
 					time.Unix(0, 0),
 				),
-				MustMetric(
+				metric.New(
 					"net",
 					map[string]string{},
-					map[string]interface{}{"value": int64(42)},
+					map[string]any{"value": int64(42)},
 					time.Unix(0, 0),
 				),
-				MustMetric(
+				metric.New(
 					"superfluous",
 					map[string]string{},
-					map[string]interface{}{"value": true},
+					map[string]any{"value": true},
 					time.Unix(0, 0),
 				),
 			},
 			want: []telegraf.Metric{
-				MustMetric(
+				metric.New(
 					"net",
 					map[string]string{},
-					map[string]interface{}{"value": int64(42)},
+					map[string]any{"value": int64(42)},
 					time.Unix(0, 0),
 				),
-				MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{"value": float64(3.14)},
+					map[string]any{"value": float64(3.14)},
 					time.Unix(0, 0),
 				),
 			},
@@ -169,30 +169,30 @@ func TestRequireMetricsStructureEqual(t *testing.T) {
 		{
 			name: "compare structure",
 			got: []telegraf.Metric{
-				MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{"value": float64(3.14)},
+					map[string]any{"value": float64(3.14)},
 					time.Unix(0, 0),
 				),
-				MustMetric(
+				metric.New(
 					"net",
 					map[string]string{},
-					map[string]interface{}{"value": int64(42)},
+					map[string]any{"value": int64(42)},
 					time.Unix(0, 0),
 				),
 			},
 			want: []telegraf.Metric{
-				MustMetric(
+				metric.New(
 					"net",
 					map[string]string{},
-					map[string]interface{}{"value": int64(0)},
+					map[string]any{"value": int64(0)},
 					time.Unix(0, 0),
 				),
-				MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{"value": float64(0)},
+					map[string]any{"value": float64(0)},
 					time.Unix(0, 0),
 				),
 			},
@@ -216,36 +216,36 @@ func TestRequireMetricsStructureSubset(t *testing.T) {
 		{
 			name: "subset of metric structure",
 			got: []telegraf.Metric{
-				MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{"value": float64(3.14)},
+					map[string]any{"value": float64(3.14)},
 					time.Unix(0, 0),
 				),
-				MustMetric(
+				metric.New(
 					"net",
 					map[string]string{},
-					map[string]interface{}{"value": int64(42)},
+					map[string]any{"value": int64(42)},
 					time.Unix(0, 0),
 				),
-				MustMetric(
+				metric.New(
 					"superfluous",
 					map[string]string{},
-					map[string]interface{}{"value": true},
+					map[string]any{"value": true},
 					time.Unix(0, 0),
 				),
 			},
 			want: []telegraf.Metric{
-				MustMetric(
+				metric.New(
 					"net",
 					map[string]string{},
-					map[string]interface{}{"value": int64(0)},
+					map[string]any{"value": int64(0)},
 					time.Unix(0, 0),
 				),
-				MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{"value": float64(0)},
+					map[string]any{"value": float64(0)},
 					time.Unix(0, 0),
 				),
 			},

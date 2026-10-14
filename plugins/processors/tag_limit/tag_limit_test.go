@@ -12,14 +12,6 @@ import (
 	"github.com/influxdata/telegraf/testutil"
 )
 
-func mustMetric(name string, tags map[string]string, metricTime time.Time) telegraf.Metric {
-	if tags == nil {
-		tags = map[string]string{}
-	}
-	m := metric.New(name, tags, map[string]interface{}{}, metricTime)
-	return m
-}
-
 func TestUnderLimit(t *testing.T) {
 	currentTime := time.Now()
 
@@ -43,8 +35,8 @@ func TestUnderLimit(t *testing.T) {
 		Keep:  []string{"foo", "bar"},
 	}
 
-	m1 := mustMetric("foo", oneTags, currentTime)
-	m2 := mustMetric("bar", tenTags, currentTime)
+	m1 := metric.New("foo", oneTags, map[string]any{}, currentTime)
+	m2 := metric.New("bar", tenTags, map[string]any{}, currentTime)
 	limitApply := tagLimitConfig.Apply(m1, m2)
 	require.Equal(t, oneTags, limitApply[0].Tags(), "one tag")
 	require.Equal(t, tenTags, limitApply[1].Tags(), "ten tags")
@@ -75,8 +67,8 @@ func TestTrim(t *testing.T) {
 		Keep:  []string{"a", "b"},
 	}
 
-	m1 := mustMetric("foo", threeTags, currentTime)
-	m2 := mustMetric("bar", tenTags, currentTime)
+	m1 := metric.New("foo", threeTags, map[string]any{}, currentTime)
+	m2 := metric.New("bar", tenTags, map[string]any{}, currentTime)
 	limitApply := tagLimitConfig.Apply(m1, m2)
 	require.Equal(t, threeTags, limitApply[0].Tags(), "three tags")
 	trimmedTags := limitApply[1].Tags()
@@ -87,9 +79,9 @@ func TestTrim(t *testing.T) {
 
 func TestTracking(t *testing.T) {
 	inputRaw := []telegraf.Metric{
-		metric.New("foo", map[string]string{"tag": "testing"}, map[string]interface{}{"value": 42}, time.Unix(0, 0)),
-		metric.New("bar", map[string]string{"tag": "other", "host": "localhost"}, map[string]interface{}{"value": 23}, time.Unix(0, 0)),
-		metric.New("baz", map[string]string{"tag": "value", "host": "localhost", "module": "main"}, map[string]interface{}{"value": 99}, time.Unix(0, 0)),
+		metric.New("foo", map[string]string{"tag": "testing"}, map[string]any{"value": 42}, time.Unix(0, 0)),
+		metric.New("bar", map[string]string{"tag": "other", "host": "localhost"}, map[string]any{"value": 23}, time.Unix(0, 0)),
+		metric.New("baz", map[string]string{"tag": "value", "host": "localhost", "module": "main"}, map[string]any{"value": 99}, time.Unix(0, 0)),
 	}
 
 	var mu sync.Mutex
@@ -110,19 +102,19 @@ func TestTracking(t *testing.T) {
 		metric.New(
 			"foo",
 			map[string]string{"tag": "testing"},
-			map[string]interface{}{"value": 42},
+			map[string]any{"value": 42},
 			time.Unix(0, 0),
 		),
 		metric.New(
 			"bar",
 			map[string]string{"tag": "other", "host": "localhost"},
-			map[string]interface{}{"value": 23},
+			map[string]any{"value": 23},
 			time.Unix(0, 0),
 		),
 		metric.New(
 			"baz",
 			map[string]string{"tag": "value", "host": "localhost"},
-			map[string]interface{}{"value": 99},
+			map[string]any{"value": 99},
 			time.Unix(0, 0),
 		),
 	}

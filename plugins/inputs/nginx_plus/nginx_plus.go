@@ -3,10 +3,12 @@ package nginx_plus
 
 import (
 	"bufio"
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -17,7 +19,7 @@ import (
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
-	"github.com/influxdata/telegraf/plugins/common/tls"
+	common_http "github.com/influxdata/telegraf/plugins/common/http"
 	"github.com/influxdata/telegraf/plugins/inputs"
 )
 
@@ -25,9 +27,9 @@ import (
 var sampleConfig string
 
 type NginxPlus struct {
-	Urls            []string        `toml:"urls"`
-	ResponseTimeout config.Duration `toml:"response_timeout"`
-	tls.ClientConfig
+	Urls []string        `toml:"urls"`
+	Log  telegraf.Logger `toml:"-"`
+	common_http.HTTPClientConfig
 
 	client *http.Client
 }
@@ -69,20 +71,15 @@ func (n *NginxPlus) Gather(acc telegraf.Accumulator) error {
 }
 
 func (n *NginxPlus) createHTTPClient() (*http.Client, error) {
-	if n.ResponseTimeout < config.Duration(time.Second) {
-		n.ResponseTimeout = config.Duration(time.Second * 5)
+	if n.HTTPClientConfig.ResponseHeaderTimeout < config.Duration(time.Second) {
+		n.HTTPClientConfig.ResponseHeaderTimeout = config.Duration(time.Second * 5)
 	}
 
-	tlsConfig, err := n.ClientConfig.TLSConfig()
+	// Create the client
+	ctx := context.Background()
+	client, err := n.HTTPClientConfig.CreateClient(ctx, n.Log)
 	if err != nil {
-		return nil, err
-	}
-
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
-		Timeout: time.Duration(n.ResponseTimeout),
+		return nil, fmt.Errorf("creating client failed: %w", err)
 	}
 
 	return client, nil
@@ -98,7 +95,7 @@ func (n *NginxPlus) gatherURL(addr *url.URL, acc telegraf.Accumulator) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%s returned HTTP status %s", addr.String(), resp.Status)
 	}
-	contentType := strings.Split(resp.Header.Get("Content-Type"), ";")[0]
+	contentType, _, _ := strings.Cut(resp.Header.Get("Content-Type"), ";")
 	switch contentType {
 	case "application/json":
 		return gatherStatusURL(bufio.NewReader(resp.Body), getTags(addr), acc)
@@ -300,7 +297,7 @@ func (s *status) gatherProcessesMetrics(tags map[string]string, acc telegraf.Acc
 
 	acc.AddFields(
 		"nginx_plus_processes",
-		map[string]interface{}{
+		map[string]any{
 			"respawned": respawned,
 		},
 		tags,
@@ -310,7 +307,7 @@ func (s *status) gatherProcessesMetrics(tags map[string]string, acc telegraf.Acc
 func (s *status) gatherConnectionsMetrics(tags map[string]string, acc telegraf.Accumulator) {
 	acc.AddFields(
 		"nginx_plus_connections",
-		map[string]interface{}{
+		map[string]any{
 			"accepted": s.Connections.Accepted,
 			"dropped":  s.Connections.Dropped,
 			"active":   s.Connections.Active,
@@ -323,7 +320,7 @@ func (s *status) gatherConnectionsMetrics(tags map[string]string, acc telegraf.A
 func (s *status) gatherSslMetrics(tags map[string]string, acc telegraf.Accumulator) {
 	acc.AddFields(
 		"nginx_plus_ssl",
-		map[string]interface{}{
+		map[string]any{
 			"handshakes":        s.Ssl.Handshakes,
 			"handshakes_failed": s.Ssl.HandshakesFailed,
 			"session_reuses":    s.Ssl.SessionReuses,
@@ -335,7 +332,7 @@ func (s *status) gatherSslMetrics(tags map[string]string, acc telegraf.Accumulat
 func (s *status) gatherRequestMetrics(tags map[string]string, acc telegraf.Accumulator) {
 	acc.AddFields(
 		"nginx_plus_requests",
-		map[string]interface{}{
+		map[string]any{
 			"total":   s.Requests.Total,
 			"current": s.Requests.Current,
 		},
@@ -346,14 +343,12 @@ func (s *status) gatherRequestMetrics(tags map[string]string, acc telegraf.Accum
 func (s *status) gatherZoneMetrics(tags map[string]string, acc telegraf.Accumulator) {
 	for zoneName, zone := range s.ServerZones {
 		zoneTags := make(map[string]string, len(tags)+1)
-		for k, v := range tags {
-			zoneTags[k] = v
-		}
+		maps.Copy(zoneTags, tags)
 		zoneTags["zone"] = zoneName
 		acc.AddFields(
 			"nginx_plus_zone",
-			func() map[string]interface{} {
-				result := map[string]interface{}{
+			func() map[string]any {
+				result := map[string]any{
 					"processing":      zone.Processing,
 					"requests":        zone.Requests,
 					"responses_1xx":   zone.Responses.Responses1xx,
@@ -378,11 +373,9 @@ func (s *status) gatherZoneMetrics(tags map[string]string, acc telegraf.Accumula
 func (s *status) gatherUpstreamMetrics(tags map[string]string, acc telegraf.Accumulator) {
 	for upstreamName, upstream := range s.Upstreams {
 		upstreamTags := make(map[string]string, len(tags)+1)
-		for k, v := range tags {
-			upstreamTags[k] = v
-		}
+		maps.Copy(upstreamTags, tags)
 		upstreamTags["upstream"] = upstreamName
-		upstreamFields := map[string]interface{}{
+		upstreamFields := map[string]any{
 			"keepalive": upstream.Keepalive,
 			"zombies":   upstream.Zombies,
 		}
@@ -403,7 +396,7 @@ func (s *status) gatherUpstreamMetrics(tags map[string]string, acc telegraf.Accu
 				selected = *peer.Selected
 			}
 
-			peerFields := map[string]interface{}{
+			peerFields := map[string]any{
 				"backup":                 peer.Backup,
 				"weight":                 peer.Weight,
 				"state":                  peer.State,
@@ -439,9 +432,7 @@ func (s *status) gatherUpstreamMetrics(tags map[string]string, acc telegraf.Accu
 				peerFields["max_conns"] = *peer.MaxConns
 			}
 			peerTags := make(map[string]string, len(upstreamTags)+2)
-			for k, v := range upstreamTags {
-				peerTags[k] = v
-			}
+			maps.Copy(peerTags, upstreamTags)
 			peerTags["upstream_address"] = peer.Server
 			if peer.ID != nil {
 				peerTags["id"] = strconv.Itoa(*peer.ID)
@@ -454,13 +445,11 @@ func (s *status) gatherUpstreamMetrics(tags map[string]string, acc telegraf.Accu
 func (s *status) gatherCacheMetrics(tags map[string]string, acc telegraf.Accumulator) {
 	for cacheName, cache := range s.Caches {
 		cacheTags := make(map[string]string, len(tags)+1)
-		for k, v := range tags {
-			cacheTags[k] = v
-		}
+		maps.Copy(cacheTags, tags)
 		cacheTags["cache"] = cacheName
 		acc.AddFields(
 			"nginx_plus_cache",
-			map[string]interface{}{
+			map[string]any{
 				"size":                      cache.Size,
 				"max_size":                  cache.MaxSize,
 				"cold":                      cache.Cold,
@@ -493,13 +482,11 @@ func (s *status) gatherCacheMetrics(tags map[string]string, acc telegraf.Accumul
 func (s *status) gatherStreamMetrics(tags map[string]string, acc telegraf.Accumulator) {
 	for zoneName, zone := range s.Stream.ServerZones {
 		zoneTags := make(map[string]string, len(tags)+1)
-		for k, v := range tags {
-			zoneTags[k] = v
-		}
+		maps.Copy(zoneTags, tags)
 		zoneTags["zone"] = zoneName
 		acc.AddFields(
 			"nginx.stream.zone",
-			map[string]interface{}{
+			map[string]any{
 				"processing":  zone.Processing,
 				"connections": zone.Connections,
 				"received":    zone.Received,
@@ -510,19 +497,17 @@ func (s *status) gatherStreamMetrics(tags map[string]string, acc telegraf.Accumu
 	}
 	for upstreamName, upstream := range s.Stream.Upstreams {
 		upstreamTags := make(map[string]string, len(tags)+1)
-		for k, v := range tags {
-			upstreamTags[k] = v
-		}
+		maps.Copy(upstreamTags, tags)
 		upstreamTags["upstream"] = upstreamName
 		acc.AddFields(
 			"nginx_plus_stream_upstream",
-			map[string]interface{}{
+			map[string]any{
 				"zombies": upstream.Zombies,
 			},
 			upstreamTags,
 		)
 		for _, peer := range upstream.Peers {
-			peerFields := map[string]interface{}{
+			peerFields := map[string]any{
 				"backup":                 peer.Backup,
 				"weight":                 peer.Weight,
 				"state":                  peer.State,
@@ -552,9 +537,7 @@ func (s *status) gatherStreamMetrics(tags map[string]string, acc telegraf.Accumu
 				peerFields["response_time"] = *peer.ResponseTime
 			}
 			peerTags := make(map[string]string, len(upstreamTags)+2)
-			for k, v := range upstreamTags {
-				peerTags[k] = v
-			}
+			maps.Copy(peerTags, upstreamTags)
 			peerTags["upstream_address"] = peer.Server
 			peerTags["id"] = strconv.Itoa(peer.ID)
 			acc.AddFields("nginx_plus_stream_upstream_peer", peerFields, peerTags)

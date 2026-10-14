@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -21,13 +22,13 @@ func Test_LinkStatusCommand(t *testing.T) {
 		dpdkConn.processCommand(mockAcc, testutil.Logger{}, ethdevLinkStatusCommand+",1", nil)
 
 		expected := []telegraf.Metric{
-			testutil.MustMetric(
+			metric.New(
 				"dpdk",
 				map[string]string{
 					"command": ethdevLinkStatusCommand,
 					"params":  "1",
 				},
-				map[string]interface{}{
+				map[string]any{
 					linkStatusStringFieldName:  "DOWN",
 					linkStatusIntegerFieldName: int64(0),
 				},
@@ -48,13 +49,13 @@ func Test_LinkStatusCommand(t *testing.T) {
 		dpdkConn.processCommand(mockAcc, testutil.Logger{}, ethdevLinkStatusCommand+",1", nil)
 
 		expected := []telegraf.Metric{
-			testutil.MustMetric(
+			metric.New(
 				"dpdk",
 				map[string]string{
 					"command": ethdevLinkStatusCommand,
 					"params":  "1",
 				},
-				map[string]interface{}{
+				map[string]any{
 					linkStatusStringFieldName:  "UP",
 					linkStatusIntegerFieldName: int64(1),
 				},
@@ -86,13 +87,13 @@ func Test_LinkStatusCommand(t *testing.T) {
 		dpdkConn := dpdk.connectors[0]
 		dpdkConn.processCommand(mockAcc, testutil.Logger{}, ethdevLinkStatusCommand+",1", nil)
 		expected := []telegraf.Metric{
-			testutil.MustMetric(
+			metric.New(
 				"dpdk",
 				map[string]string{
 					"command": ethdevLinkStatusCommand,
 					"params":  "1",
 				},
-				map[string]interface{}{
+				map[string]any{
 					"tag1": float64(1),
 				},
 				time.Unix(0, 0),
@@ -112,13 +113,13 @@ func Test_LinkStatusCommand(t *testing.T) {
 		dpdkConn.processCommand(mockAcc, testutil.Logger{}, ethdevLinkStatusCommand+",1", nil)
 
 		expected := []telegraf.Metric{
-			testutil.MustMetric(
+			metric.New(
 				"dpdk",
 				map[string]string{
 					"command": ethdevLinkStatusCommand,
 					"params":  "1",
 				},
-				map[string]interface{}{
+				map[string]any{
 					linkStatusStringFieldName: "BOB",
 				},
 				time.Unix(0, 0),

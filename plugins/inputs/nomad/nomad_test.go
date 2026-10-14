@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -22,12 +23,12 @@ func TestNomadStats(t *testing.T) {
 		{
 			name: "Metrics",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"nomad.nomad.rpc.query",
 					map[string]string{
 						"host": "node1",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"count": int(7),
 						"max":   float64(1),
 						"min":   float64(1),
@@ -39,7 +40,7 @@ func TestNomadStats(t *testing.T) {
 					time.Unix(1636843140, 0),
 					1,
 				),
-				testutil.MustMetric(
+				metric.New(
 					"nomad.client.allocated.cpu",
 					map[string]string{
 						"node_scheduling_eligibility": "eligible",
@@ -49,18 +50,18 @@ func TestNomadStats(t *testing.T) {
 						"node_class":                  "none",
 						"node_status":                 "ready",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": float32(500),
 					},
 					time.Unix(1636843140, 0),
 					2,
 				),
-				testutil.MustMetric(
+				metric.New(
 					"nomad.memberlist.gossip",
 					map[string]string{
 						"host": "node1",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"count":  int(20),
 						"max":    float64(0.03747599944472313),
 						"mean":   float64(0.013159099989570678),

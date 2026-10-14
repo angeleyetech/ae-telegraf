@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 	"github.com/tdrn-org/go-hue/mock"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
-	"github.com/influxdata/telegraf/plugins/common/tls"
 	"github.com/influxdata/telegraf/plugins/parsers/influx"
 	"github.com/influxdata/telegraf/testutil"
 )
@@ -48,16 +48,12 @@ func TestInitSuccess(t *testing.T) {
 			"mdns://12345678:secret@/",
 			"remote://12345678:secret@localhost/",
 		},
-		remoteClientConfig: remoteClientConfig{
-			RemoteClientID:     mock.MockClientId,
-			RemoteClientSecret: mock.MockClientSecret,
-			RemoteTokenDir:     ".",
-		},
-		ClientConfig: tls.ClientConfig{
-			InsecureSkipVerify: true,
-		},
-		Timeout: config.Duration(10 * time.Second),
-		Log:     &testutil.Logger{Name: "huebridge"},
+		RemoteClientID:     mock.MockClientId,
+		RemoteClientSecret: mock.MockClientSecret,
+		RemoteTokenDir:     ".",
+		InsecureSkipVerify: true,
+		Timeout:            config.Duration(10 * time.Second),
+		Log:                &testutil.Logger{Name: "huebridge"},
 	}
 
 	// Verify successful Init
@@ -146,5 +142,7 @@ func TestGatherLocal(t *testing.T) {
 	// Verify successfull collection
 	var acc testutil.Accumulator
 	require.NoError(t, acc.GatherError(h.Gather))
-	testutil.RequireMetricsEqual(t, expected, acc.GetTelegrafMetrics(), testutil.IgnoreTime(), testutil.SortMetrics())
+	// Absorb 1-ULP differences in math.Pow (light_level_lux) between amd64 and arm64.
+	testutil.RequireMetricsEqual(t, expected, acc.GetTelegrafMetrics(),
+		testutil.IgnoreTime(), testutil.SortMetrics(), cmpopts.EquateApprox(0, 1e-9))
 }

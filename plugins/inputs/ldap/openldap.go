@@ -40,12 +40,7 @@ func (l *LDAP) newOpenLDAPConfig() []request {
 }
 
 func (l *LDAP) convertOpenLDAP(result *ldap.SearchResult, ts time.Time) []telegraf.Metric {
-	tags := map[string]string{
-		"server": l.host,
-		"port":   l.port,
-	}
-
-	fields := make(map[string]interface{})
+	fields := make(map[string]any)
 	for _, entry := range result.Entries {
 		prefix := openLDAPAttrConvertDN(entry.DN, l.ReverseFieldNames)
 		for _, attr := range entry.Attributes {
@@ -58,7 +53,7 @@ func (l *LDAP) convertOpenLDAP(result *ldap.SearchResult, ts time.Time) []telegr
 		}
 	}
 
-	m := metric.New("openldap", tags, fields, ts)
+	m := metric.New("openldap", l.tags, fields, ts)
 	return []telegraf.Metric{m}
 }
 

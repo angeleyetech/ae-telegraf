@@ -19,8 +19,7 @@ import (
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
-	common_http "github.com/influxdata/telegraf/plugins/common/http"
-	"github.com/influxdata/telegraf/plugins/common/oauth"
+	"github.com/influxdata/telegraf/metric"
 	httpplugin "github.com/influxdata/telegraf/plugins/inputs/http"
 	"github.com/influxdata/telegraf/plugins/parsers/csv"
 	"github.com/influxdata/telegraf/plugins/parsers/influx"
@@ -63,8 +62,8 @@ func TestHTTPWithJSONFormat(t *testing.T) {
 	require.Len(t, acc.Metrics, 1)
 
 	// basic check to see if we got the right field, value and tag
-	var metric = acc.Metrics[0]
-	require.Equal(t, metric.Measurement, metricName)
+	var m = acc.Metrics[0]
+	require.Equal(t, m.Measurement, metricName)
 	require.Len(t, acc.Metrics[0].Fields, 1)
 	require.InDelta(t, 1.2, acc.Metrics[0].Fields["a"], testutil.DefaultDelta)
 	require.Equal(t, acc.Metrics[0].Tags["url"], address)
@@ -357,16 +356,12 @@ func TestOAuthClientCredentialsGrant(t *testing.T) {
 		{
 			name: "success",
 			plugin: &httpplugin.HTTP{
-				URLs: []string{u.String() + "/write"},
-				HTTPClientConfig: common_http.HTTPClientConfig{
-					OAuth2Config: oauth.OAuth2Config{
-						ClientID:     "howdy",
-						ClientSecret: "secret",
-						TokenURL:     u.String() + "/token",
-						Scopes:       []string{"urn:opc:idm:__myscopes__"},
-					},
-				},
-				Log: testutil.Logger{},
+				URLs:         []string{u.String() + "/write"},
+				ClientID:     "howdy",
+				ClientSecret: "secret",
+				TokenURL:     u.String() + "/token",
+				Scopes:       []string{"urn:opc:idm:__myscopes__"},
+				Log:          testutil.Logger{},
 			},
 			tokenHandler: func(t *testing.T, w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
@@ -446,12 +441,12 @@ func TestHTTPWithCSVFormat(t *testing.T) {
 	})
 
 	expected := []telegraf.Metric{
-		testutil.MustMetric("metricName",
+		metric.New("metricName",
 			map[string]string{
 				"url": address,
 				"c":   "ok",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"a": 1.2,
 				"b": 3.1415,
 			},
@@ -524,12 +519,12 @@ func TestConnectionOverUnixSocket(t *testing.T) {
 	})
 
 	expected := []telegraf.Metric{
-		testutil.MustMetric("metricName",
+		metric.New("metricName",
 			map[string]string{
 				"url": address,
 				"c":   "ok",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"a": 1.2,
 				"b": 3.1415,
 			},

@@ -20,15 +20,15 @@ func TestSimple(t *testing.T) {
 	tags := map[string]string{"foo": "bar"}
 	m1 := metric.New("m1",
 		tags,
-		map[string]interface{}{"a": int64(1)},
+		map[string]any{"a": int64(1)},
 		time.Unix(1530939936, 0))
 	m2 := metric.New("m1",
 		tags,
-		map[string]interface{}{"a": int64(2)},
+		map[string]any{"a": int64(2)},
 		time.Unix(1530939937, 0))
 	m3 := metric.New("m1",
 		tags,
-		map[string]interface{}{"a": int64(3)},
+		map[string]any{"a": int64(3)},
 		time.Unix(1530939938, 0))
 	final.Add(m1)
 	final.Add(m2)
@@ -36,10 +36,10 @@ func TestSimple(t *testing.T) {
 	final.Push(&acc)
 
 	expected := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"m1",
 			tags,
-			map[string]interface{}{
+			map[string]any{
 				"a_final": 3,
 			},
 			time.Unix(1530939938, 0),
@@ -58,15 +58,15 @@ func TestTwoTags(t *testing.T) {
 
 	m1 := metric.New("m1",
 		tags1,
-		map[string]interface{}{"a": int64(1)},
+		map[string]any{"a": int64(1)},
 		time.Unix(1530939936, 0))
 	m2 := metric.New("m1",
 		tags2,
-		map[string]interface{}{"a": int64(2)},
+		map[string]any{"a": int64(2)},
 		time.Unix(1530939937, 0))
 	m3 := metric.New("m1",
 		tags1,
-		map[string]interface{}{"a": int64(3)},
+		map[string]any{"a": int64(3)},
 		time.Unix(1530939938, 0))
 	final.Add(m1)
 	final.Add(m2)
@@ -74,18 +74,18 @@ func TestTwoTags(t *testing.T) {
 	final.Push(&acc)
 
 	expected := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"m1",
 			tags2,
-			map[string]interface{}{
+			map[string]any{
 				"a_final": 2,
 			},
 			time.Unix(1530939937, 0),
 		),
-		testutil.MustMetric(
+		metric.New(
 			"m1",
 			tags1,
-			map[string]interface{}{
+			map[string]any{
 				"a_final": 3,
 			},
 			time.Unix(1530939938, 0),
@@ -105,19 +105,19 @@ func TestLongDifference(t *testing.T) {
 
 	m1 := metric.New("m",
 		tags,
-		map[string]interface{}{"a": int64(1)},
+		map[string]any{"a": int64(1)},
 		now.Add(time.Second*-290))
 	m2 := metric.New("m",
 		tags,
-		map[string]interface{}{"a": int64(2)},
+		map[string]any{"a": int64(2)},
 		now.Add(time.Second*-275))
 	m3 := metric.New("m",
 		tags,
-		map[string]interface{}{"a": int64(3)},
+		map[string]any{"a": int64(3)},
 		now.Add(time.Second*-100))
 	m4 := metric.New("m",
 		tags,
-		map[string]interface{}{"a": int64(4)},
+		map[string]any{"a": int64(4)},
 		now.Add(time.Second*-20))
 	final.Add(m1)
 	final.Add(m2)
@@ -128,18 +128,18 @@ func TestLongDifference(t *testing.T) {
 	final.Push(&acc)
 
 	expected := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"m",
 			tags,
-			map[string]interface{}{
+			map[string]any{
 				"a_final": 2,
 			},
 			now.Add(time.Second*-275),
 		),
-		testutil.MustMetric(
+		metric.New(
 			"m",
 			tags,
-			map[string]interface{}{
+			map[string]any{
 				"a_final": 3,
 			},
 			now.Add(time.Second*-100),
@@ -167,19 +167,19 @@ func TestOutputStrategyTimeout(t *testing.T) {
 	tags := map[string]string{"foo": "bar"}
 	m1 := metric.New("m",
 		tags,
-		map[string]interface{}{"a": int64(1)},
+		map[string]any{"a": int64(1)},
 		now.Add(time.Second*-290))
 	m2 := metric.New("m",
 		tags,
-		map[string]interface{}{"a": int64(2)},
+		map[string]any{"a": int64(2)},
 		now.Add(time.Second*-275))
 	m3 := metric.New("m",
 		tags,
-		map[string]interface{}{"a": int64(3)},
+		map[string]any{"a": int64(3)},
 		now.Add(time.Second*-100))
 	m4 := metric.New("m",
 		tags,
-		map[string]interface{}{"a": int64(4)},
+		map[string]any{"a": int64(4)},
 		now.Add(time.Second*-20))
 
 	var acc testutil.Accumulator
@@ -192,18 +192,18 @@ func TestOutputStrategyTimeout(t *testing.T) {
 	final.Push(&acc)
 
 	expected := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"m",
 			tags,
-			map[string]interface{}{
+			map[string]any{
 				"a_final": 2,
 			},
 			now.Add(time.Second*-275),
 		),
-		testutil.MustMetric(
+		metric.New(
 			"m",
 			tags,
-			map[string]interface{}{
+			map[string]any{
 				"a_final": 3,
 			},
 			now.Add(time.Second*-100),
@@ -223,19 +223,19 @@ func TestOutputStrategyPeriodic(t *testing.T) {
 	tags := map[string]string{"foo": "bar"}
 	m1 := metric.New("m",
 		tags,
-		map[string]interface{}{"a": int64(1)},
+		map[string]any{"a": int64(1)},
 		now.Add(time.Second*-290))
 	m2 := metric.New("m",
 		tags,
-		map[string]interface{}{"a": int64(2)},
+		map[string]any{"a": int64(2)},
 		now.Add(time.Second*-275))
 	m3 := metric.New("m",
 		tags,
-		map[string]interface{}{"a": int64(3)},
+		map[string]any{"a": int64(3)},
 		now.Add(time.Second*-100))
 	m4 := metric.New("m",
 		tags,
-		map[string]interface{}{"a": int64(4)},
+		map[string]any{"a": int64(4)},
 		now.Add(time.Second*-20))
 
 	var acc testutil.Accumulator
@@ -251,7 +251,7 @@ func TestOutputStrategyPeriodic(t *testing.T) {
 		metric.New(
 			"m",
 			tags,
-			map[string]interface{}{
+			map[string]any{
 				"a_final": 2,
 			},
 			now.Add(time.Second*-275),
@@ -259,7 +259,7 @@ func TestOutputStrategyPeriodic(t *testing.T) {
 		metric.New(
 			"m",
 			tags,
-			map[string]interface{}{
+			map[string]any{
 				"a_final": 3,
 			},
 			now.Add(time.Second*-100),
@@ -267,7 +267,7 @@ func TestOutputStrategyPeriodic(t *testing.T) {
 		metric.New(
 			"m",
 			tags,
-			map[string]interface{}{
+			map[string]any{
 				"a_final": 4,
 			},
 			now.Add(time.Second*-20),

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -64,10 +65,10 @@ func TestWrite(t *testing.T) {
 			name:   "metric is converted to json value",
 			plugin: &NebiusCloudMonitoring{},
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cluster",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"cpu": 42.0,
 					},
 					time.Unix(0, 0),
@@ -86,10 +87,10 @@ func TestWrite(t *testing.T) {
 			name:   "int64 metric is converted to json value",
 			plugin: &NebiusCloudMonitoring{},
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cluster",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": int64(9223372036854775806),
 					},
 					time.Unix(0, 0),
@@ -108,10 +109,10 @@ func TestWrite(t *testing.T) {
 			name:   "int metric is converted to json value",
 			plugin: &NebiusCloudMonitoring{},
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cluster",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 9226,
 					},
 					time.Unix(0, 0),
@@ -130,12 +131,12 @@ func TestWrite(t *testing.T) {
 			name:   "label with name 'name' is replaced with '_name'",
 			plugin: &NebiusCloudMonitoring{},
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cluster",
 					map[string]string{
 						"name": "accounts-daemon.service",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": 9226,
 					},
 					time.Unix(0, 0),

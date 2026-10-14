@@ -20,6 +20,7 @@ import (
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/internal"
+	common_gcp "github.com/influxdata/telegraf/plugins/common/gcp"
 	"github.com/influxdata/telegraf/plugins/outputs"
 )
 
@@ -93,7 +94,11 @@ func (b *BigQuery) setUpDefaultClient() error {
 	ctx := context.Background()
 
 	if b.CredentialsFile != "" {
-		credentialsOption = option.WithCredentialsFile(b.CredentialsFile)
+		credType, err := common_gcp.ParseCredentialType(b.CredentialsFile)
+		if err != nil {
+			return fmt.Errorf("unable to parse credential file type: %w", err)
+		}
+		credentialsOption = option.WithAuthCredentialsFile(option.CredentialsType(credType), b.CredentialsFile)
 	} else {
 		creds, err := google.FindDefaultCredentials(ctx, bigquery.Scope)
 		if err != nil {
@@ -167,11 +172,8 @@ func groupByMetricName(metrics []telegraf.Metric) map[string][]bigquery.ValueSav
 }
 
 func newValuesSaver(m telegraf.Metric) *bigquery.ValuesSaver {
-	s := make(bigquery.Schema, 0)
-	r := make([]bigquery.Value, 0)
-	timeSchema := timeStampFieldSchema()
-	s = append(s, timeSchema)
-	r = append(r, m.Time())
+	s := bigquery.Schema{timeStampFieldSchema()}
+	r := []bigquery.Value{m.Time()}
 
 	s, r = tagsSchemaAndValues(m, s, r)
 	s, r = valuesSchemaAndValues(m, s, r)
@@ -188,7 +190,7 @@ func (b *BigQuery) newCompactValuesSaver(m telegraf.Metric) (*bigquery.ValuesSav
 		return nil, fmt.Errorf("serializing tags: %w", err)
 	}
 
-	rawFields := make(map[string]interface{}, len(m.FieldList()))
+	rawFields := make(map[string]any, len(m.FieldList()))
 	for _, field := range m.FieldList() {
 		if fv, ok := field.Value.(float64); ok {
 			// JSON does not support these special values
@@ -266,7 +268,7 @@ func valuesSchema(f *telegraf.Field) *bigquery.FieldSchema {
 	}
 }
 
-func valueToBqType(v interface{}) bigquery.FieldType {
+func valueToBqType(v any) bigquery.FieldType {
 	switch reflect.ValueOf(v).Kind() {
 	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64:
 		return bigquery.IntegerFieldType

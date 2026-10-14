@@ -8,12 +8,10 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/influxdata/telegraf/config"
-	"github.com/influxdata/telegraf/plugins/common/tls"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -32,7 +30,7 @@ func TestMysqlDefaultsToLocalIntegration(t *testing.T) {
 		ExposedPorts: []string{servicePort},
 		WaitingFor: wait.ForAll(
 			wait.ForLog("/usr/sbin/mysqld: ready for connections").WithOccurrence(2),
-			wait.ForListeningPort(nat.Port(servicePort)),
+			wait.ForListeningPort(servicePort),
 		),
 	}
 
@@ -70,7 +68,7 @@ func TestMysqlMultipleInstancesIntegration(t *testing.T) {
 		ExposedPorts: []string{servicePort},
 		WaitingFor: wait.ForAll(
 			wait.ForLog("/usr/sbin/mysqld: ready for connections").WithOccurrence(2),
-			wait.ForListeningPort(nat.Port(servicePort)),
+			wait.ForListeningPort(servicePort),
 		),
 	}
 
@@ -126,7 +124,7 @@ func TestPercona8Integration(t *testing.T) {
 		ExposedPorts: []string{servicePort},
 		WaitingFor: wait.ForAll(
 			wait.ForLog("/usr/sbin/mysqld: ready for connections").WithOccurrence(2),
-			wait.ForListeningPort(nat.Port(servicePort)),
+			wait.ForListeningPort(servicePort),
 		),
 	}
 	require.NoError(t, container.Start(), "failed to start container")
@@ -162,7 +160,7 @@ func TestGaleraIntegration(t *testing.T) {
 		ExposedPorts: []string{servicePort},
 		WaitingFor: wait.ForAll(
 			wait.ForLog("Synchronized with group, ready for connections"),
-			wait.ForListeningPort(nat.Port(servicePort)),
+			wait.ForListeningPort(servicePort),
 		),
 	}
 	require.NoError(t, container.Start(), "failed to start container")
@@ -384,8 +382,8 @@ func TestMysqlTLSCustomization(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			s := config.NewSecret([]byte(test.input))
 			plugin := &Mysql{
-				Servers:      []*config.Secret{&s},
-				ClientConfig: tls.ClientConfig{InsecureSkipVerify: true},
+				Servers:            []*config.Secret{&s},
+				InsecureSkipVerify: true,
 			}
 			err := plugin.Init()
 			if test.errmsg != "" {
@@ -431,7 +429,7 @@ func TestGatherGlobalVariables(t *testing.T) {
 	type fields []struct {
 		key         string
 		rawValue    string
-		parsedValue interface{}
+		parsedValue any
 	}
 	type tags map[string]string
 	testCases := []struct {

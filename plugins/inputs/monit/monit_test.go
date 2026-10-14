@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -34,7 +35,7 @@ func TestServiceType(t *testing.T) {
 			name:     "check filesystem service type",
 			filename: "testdata/response_servicetype_0.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_filesystem",
 					map[string]string{
 						"version":           "5.17.1",
@@ -46,7 +47,7 @@ func TestServiceType(t *testing.T) {
 						"monitoring_mode":   "active",
 						"pending_action":    "none",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            0,
 						"monitoring_status_code": 1,
 						"monitoring_mode_code":   0,
@@ -67,7 +68,7 @@ func TestServiceType(t *testing.T) {
 			name:     "check directory service type",
 			filename: "testdata/response_servicetype_1.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_directory",
 					map[string]string{
 						"version":           "5.17.1",
@@ -79,7 +80,7 @@ func TestServiceType(t *testing.T) {
 						"monitoring_mode":   "active",
 						"pending_action":    "none",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            0,
 						"monitoring_status_code": 1,
 						"monitoring_mode_code":   0,
@@ -94,7 +95,7 @@ func TestServiceType(t *testing.T) {
 			name:     "check file service type",
 			filename: "testdata/response_servicetype_2.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_file",
 					map[string]string{
 						"version":           "5.17.1",
@@ -106,7 +107,7 @@ func TestServiceType(t *testing.T) {
 						"monitoring_mode":   "active",
 						"pending_action":    "none",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            0,
 						"monitoring_status_code": 1,
 						"monitoring_mode_code":   0,
@@ -122,7 +123,7 @@ func TestServiceType(t *testing.T) {
 			name:     "check process service type",
 			filename: "testdata/response_servicetype_3.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_process",
 					map[string]string{
 						"version":           "5.17.1",
@@ -134,7 +135,7 @@ func TestServiceType(t *testing.T) {
 						"monitoring_mode":   "active",
 						"pending_action":    "none",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            0,
 						"monitoring_status_code": 1,
 						"monitoring_mode_code":   0,
@@ -158,7 +159,7 @@ func TestServiceType(t *testing.T) {
 			name:     "check remote host service type",
 			filename: "testdata/response_servicetype_4.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_remote_host",
 					map[string]string{
 						"version":           "5.17.1",
@@ -170,7 +171,7 @@ func TestServiceType(t *testing.T) {
 						"monitoring_mode":   "active",
 						"pending_action":    "none",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            0,
 						"monitoring_status_code": 1,
 						"monitoring_mode_code":   0,
@@ -190,7 +191,7 @@ func TestServiceType(t *testing.T) {
 			name:     "check system service type",
 			filename: "testdata/response_servicetype_5.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_system",
 					map[string]string{
 						"version":           "5.17.1",
@@ -202,7 +203,7 @@ func TestServiceType(t *testing.T) {
 						"monitoring_mode":   "active",
 						"pending_action":    "none",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            0,
 						"monitoring_status_code": 1,
 						"monitoring_mode_code":   0,
@@ -226,7 +227,7 @@ func TestServiceType(t *testing.T) {
 			name:     "check fifo service type",
 			filename: "testdata/response_servicetype_6.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_fifo",
 					map[string]string{
 						"version":           "5.17.1",
@@ -238,7 +239,7 @@ func TestServiceType(t *testing.T) {
 						"monitoring_mode":   "active",
 						"pending_action":    "none",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            0,
 						"monitoring_status_code": 1,
 						"monitoring_mode_code":   0,
@@ -253,7 +254,7 @@ func TestServiceType(t *testing.T) {
 			name:     "check program service type",
 			filename: "testdata/response_servicetype_7.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_program",
 					map[string]string{
 						"version":           "5.17.1",
@@ -265,7 +266,7 @@ func TestServiceType(t *testing.T) {
 						"monitoring_mode":   "active",
 						"pending_action":    "none",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            0,
 						"monitoring_status_code": 1,
 						"monitoring_mode_code":   0,
@@ -281,7 +282,7 @@ func TestServiceType(t *testing.T) {
 			name:     "check network service type",
 			filename: "testdata/response_servicetype_8.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_network",
 					map[string]string{
 						"version":           "5.17.1",
@@ -293,7 +294,7 @@ func TestServiceType(t *testing.T) {
 						"monitoring_mode":   "active",
 						"pending_action":    "none",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            0,
 						"monitoring_status_code": 1,
 						"monitoring_mode_code":   0,
@@ -355,7 +356,7 @@ func TestMonitFailure(t *testing.T) {
 			name:     "check monit failure status",
 			filename: "testdata/response_servicetype_8_failure.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_network",
 					map[string]string{
 						"version":           "5.17.1",
@@ -367,7 +368,7 @@ func TestMonitFailure(t *testing.T) {
 						"monitoring_mode":   "active",
 						"pending_action":    "none",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            8388608,
 						"monitoring_status_code": 1,
 						"monitoring_mode_code":   0,
@@ -396,7 +397,7 @@ func TestMonitFailure(t *testing.T) {
 			name:     "check passive mode",
 			filename: "testdata/response_servicetype_8_passivemode.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_network",
 					map[string]string{
 						"version":           "5.17.1",
@@ -408,7 +409,7 @@ func TestMonitFailure(t *testing.T) {
 						"monitoring_mode":   "passive",
 						"pending_action":    "none",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            0,
 						"monitoring_status_code": 1,
 						"monitoring_mode_code":   1,
@@ -437,7 +438,7 @@ func TestMonitFailure(t *testing.T) {
 			name:     "check initializing status",
 			filename: "testdata/response_servicetype_8_initializingmode.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_network",
 					map[string]string{
 						"version":           "5.17.1",
@@ -449,7 +450,7 @@ func TestMonitFailure(t *testing.T) {
 						"monitoring_mode":   "active",
 						"pending_action":    "none",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            0,
 						"monitoring_status_code": 2,
 						"monitoring_mode_code":   0,
@@ -478,7 +479,7 @@ func TestMonitFailure(t *testing.T) {
 			name:     "check pending action",
 			filename: "testdata/response_servicetype_8_pendingaction.xml",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"monit_network",
 					map[string]string{
 						"version":           "5.17.1",
@@ -490,7 +491,7 @@ func TestMonitFailure(t *testing.T) {
 						"monitoring_mode":   "active",
 						"pending_action":    "exec",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"status_code":            0,
 						"monitoring_status_code": 1,
 						"monitoring_mode_code":   0,

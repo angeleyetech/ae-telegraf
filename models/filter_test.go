@@ -8,7 +8,6 @@ import (
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/metric"
-	"github.com/influxdata/telegraf/testutil"
 )
 
 func TestFilterApplyEmpty(t *testing.T) {
@@ -18,7 +17,7 @@ func TestFilterApplyEmpty(t *testing.T) {
 
 	m := metric.New("m",
 		map[string]string{},
-		map[string]interface{}{"value": int64(1)},
+		map[string]any{"value": int64(1)},
 		time.Now())
 	selected, err := f.Select(m)
 	require.NoError(t, err)
@@ -41,7 +40,7 @@ func TestFilterApplyTagsDontPass(t *testing.T) {
 
 	m := metric.New("m",
 		map[string]string{"cpu": "cpu-total"},
-		map[string]interface{}{"value": int64(1)},
+		map[string]any{"value": int64(1)},
 		time.Now())
 	selected, err := f.Select(m)
 	require.NoError(t, err)
@@ -58,7 +57,7 @@ func TestFilterApplyDeleteFields(t *testing.T) {
 
 	m := metric.New("m",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value":  int64(1),
 			"value2": int64(2),
 		},
@@ -67,7 +66,7 @@ func TestFilterApplyDeleteFields(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, selected)
 	f.Modify(m)
-	require.Equal(t, map[string]interface{}{"value2": int64(2)}, m.Fields())
+	require.Equal(t, map[string]any{"value2": int64(2)}, m.Fields())
 }
 
 func TestFilterApplyDeleteAllFields(t *testing.T) {
@@ -80,7 +79,7 @@ func TestFilterApplyDeleteAllFields(t *testing.T) {
 
 	m := metric.New("m",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value":  int64(1),
 			"value2": int64(2),
 		},
@@ -406,7 +405,7 @@ func TestFilterTagsNoMatches(t *testing.T) {
 			"host":  "localhost",
 			"mytag": "foobar",
 		},
-		map[string]interface{}{"value": int64(1)},
+		map[string]any{"value": int64(1)},
 		time.Now())
 	f := Filter{
 		TagExclude: []string{"nomatch"},
@@ -434,7 +433,7 @@ func TestFilterTagsMatches(t *testing.T) {
 			"host":  "localhost",
 			"mytag": "foobar",
 		},
-		map[string]interface{}{"value": int64(1)},
+		map[string]any{"value": int64(1)},
 		time.Now())
 	f := Filter{
 		TagExclude: []string{"ho*"},
@@ -451,7 +450,7 @@ func TestFilterTagsMatches(t *testing.T) {
 			"host":  "localhost",
 			"mytag": "foobar",
 		},
-		map[string]interface{}{"value": int64(1)},
+		map[string]any{"value": int64(1)},
 		time.Now())
 	f = Filter{
 		TagInclude: []string{"my*"},
@@ -545,13 +544,13 @@ func TestFilterTagsPassAndDrop(t *testing.T) {
 }
 
 func TestFilterMetricPass(t *testing.T) {
-	m := testutil.MustMetric("cpu",
+	m := metric.New("cpu",
 		map[string]string{
 			"host":   "Hugin",
 			"source": "myserver@mycompany.com",
 			"status": "ok",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value":  15.0,
 			"id":     "24cxnwr3480k",
 			"on":     true,
@@ -655,9 +654,9 @@ func BenchmarkFilter(b *testing.B) {
 		{
 			name:   "empty filter",
 			filter: Filter{},
-			metric: testutil.MustMetric("cpu",
+			metric: metric.New("cpu",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42,
 				},
 				time.Unix(0, 0),
@@ -668,9 +667,9 @@ func BenchmarkFilter(b *testing.B) {
 			filter: Filter{
 				NamePass: []string{"cpu"},
 			},
-			metric: testutil.MustMetric("cpu",
+			metric: metric.New("cpu",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42,
 				},
 				time.Unix(0, 0),
@@ -681,9 +680,9 @@ func BenchmarkFilter(b *testing.B) {
 			filter: Filter{
 				MetricPass: `name == "cpu"`,
 			},
-			metric: testutil.MustMetric("cpu",
+			metric: metric.New("cpu",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42,
 				},
 				time.Unix(0, 0),
@@ -694,9 +693,9 @@ func BenchmarkFilter(b *testing.B) {
 			filter: Filter{
 				MetricPass: `name.matches("^c[a-z]*$")`,
 			},
-			metric: testutil.MustMetric("cpu",
+			metric: metric.New("cpu",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42,
 				},
 				time.Unix(0, 0),
@@ -707,9 +706,9 @@ func BenchmarkFilter(b *testing.B) {
 			filter: Filter{
 				MetricPass: `time >= timestamp("2023-04-25T00:00:00Z") - duration("24h")`,
 			},
-			metric: testutil.MustMetric("cpu",
+			metric: metric.New("cpu",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42,
 				},
 				time.Unix(0, 0),
@@ -722,9 +721,9 @@ func BenchmarkFilter(b *testing.B) {
 					` && fields.exists(f, type(fields[f]) in [int, uint, double] && fields[f] > 20.0)` +
 					` && time >= timestamp("2023-04-25T00:00:00Z") - duration("24h")`,
 			},
-			metric: testutil.MustMetric("cpu",
+			metric: metric.New("cpu",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42,
 				},
 				time.Unix(0, 0),

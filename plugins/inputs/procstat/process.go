@@ -12,6 +12,7 @@ import (
 	gopsprocess "github.com/shirou/gopsutil/v4/process"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/internal"
 	"github.com/influxdata/telegraf/metric"
 )
 
@@ -74,7 +75,7 @@ func (p *proc) metrics(prefix string, cfg *collectionConfig, t time.Time) ([]tel
 		prefix += "_"
 	}
 
-	fields := make(map[string]interface{})
+	fields := make(map[string]any)
 	numThreads, err := p.NumThreads()
 	if err == nil {
 		fields[prefix+"num_threads"] = numThreads
@@ -258,7 +259,7 @@ func (p *proc) metrics(prefix string, cfg *collectionConfig, t time.Time) ([]tel
 	if cfg.features["sockets"] {
 		for _, protocol := range cfg.socketProtos {
 			// Get the requested connections for the PID
-			var fieldlist []map[string]interface{}
+			var fieldlist []map[string]any
 			switch protocol {
 			case "all":
 				conns, err := gopsnet.ConnectionsPid(protocol, p.Pid)
@@ -357,8 +358,11 @@ func (p *proc) metrics(prefix string, cfg *collectionConfig, t time.Time) ([]tel
 					delete(fields, "src")
 				}
 				if cfg.tagging["src_port"] && fields["src_port"] != nil {
-					port := uint64(fields["src_port"].(uint16))
-					p.tags["src_port"] = strconv.FormatUint(port, 10)
+					port, err := internal.ToString(fields["src_port"])
+					if err != nil {
+						return metrics, fmt.Errorf("converting source port to tag failed: %w", err)
+					}
+					p.tags["src_port"] = port
 					delete(fields, "src_port")
 				}
 				if cfg.tagging["dest"] && fields["dest"] != nil {
@@ -366,8 +370,11 @@ func (p *proc) metrics(prefix string, cfg *collectionConfig, t time.Time) ([]tel
 					delete(fields, "dest")
 				}
 				if cfg.tagging["dest_port"] && fields["dest_port"] != nil {
-					port := uint64(fields["dest_port"].(uint16))
-					p.tags["dest_port"] = strconv.FormatUint(port, 10)
+					port, err := internal.ToString(fields["dest_port"])
+					if err != nil {
+						return metrics, fmt.Errorf("converting destination port to tag failed: %w", err)
+					}
+					p.tags["dest_port"] = port
 					delete(fields, "dest_port")
 				}
 				if cfg.tagging["name"] && fields["name"] != nil {

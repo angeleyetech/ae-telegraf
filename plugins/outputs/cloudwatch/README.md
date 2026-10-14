@@ -35,10 +35,9 @@ The IAM user needs only the `cloudwatch:PutMetricData` permission.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -60,18 +59,16 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
   ## 5) environment variables
   ## 6) shared credentials file
   ## 7) EC2 Instance Profile
-  #access_key = ""
-  #secret_key = ""
-  #token = ""
-  #role_arn = ""
-  #web_identity_token_file = ""
-  #role_session_name = ""
-  #profile = ""
-  #shared_credential_file = ""
+  # access_key = ""
+  # secret_key = ""
+  # token = ""
+  # role_arn = ""
+  # web_identity_token_file = ""
+  # role_session_name = ""
+  # profile = ""
+  # shared_credential_file = ""
 
-  ## Endpoint to make request against, the correct endpoint is automatically
-  ## determined and this option should only be set if you wish to override the
-  ## default.
+  ## Override the auto-detected endpoint to make request against
   ##   ex: endpoint_url = "http://localhost:8000"
   # endpoint_url = ""
 
@@ -94,6 +91,12 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
   ## Enable high resolution metrics of 1 second (if not enabled, standard
   ## resolution are of 60 seconds precision)
   # high_resolution_metrics = false
+
+  ## Maximum number of dimensions to include in the metric
+  ## The default is ten for backward compatibility but Cloudwatch supports
+  ## up to 30 dimensions in a metric according to
+  ## https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/publishingMetrics.html#usingDimensions
+  # max_dimensions = 10
 ```
 
 For this output plugin to function correctly the following variables must be

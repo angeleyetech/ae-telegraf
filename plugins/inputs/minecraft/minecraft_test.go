@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -86,7 +87,7 @@ func TestGather(t *testing.T) {
 				},
 			},
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"minecraft",
 					map[string]string{
 						"player": "Etho",
@@ -94,7 +95,7 @@ func TestGather(t *testing.T) {
 						"source": "example.org",
 						"port":   "25575",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"jumps": 42,
 					},
 					now,

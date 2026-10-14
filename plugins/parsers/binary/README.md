@@ -19,8 +19,9 @@ user-specified configurations.
   # allow_no_match = false
 
   ## Specify the endianness of the data.
-  ## Available values are "be" (big-endian), "le" (little-endian) and "host",
-  ## where "host" means the same endianness as the machine running Telegraf.
+  ## Available values are "big" or "be" for big-endian, "little" or "le" for
+  ## little-endian and "host" for using the same endianness as the machine
+  ## running Telegraf.
   # endianness = "host"
 
   ## Interpret input using the specified encoding
@@ -38,7 +39,7 @@ user-specified configurations.
     ## given.
     ## An entry can have the following properties:
     ##  name        --  Name of the element (e.g. field or tag). Can be omitted
-    ##                  for special assignments (i.e. time & measurement) or if
+    ##                  for special assignments (time and measurement) or if
     ##                  entry is omitted.
     ##  type        --  Data-type of the entry. Can be "int8/16/32/64", "uint8/16/32/64",
     ##                  "float32/64", "bool" and "string".
@@ -66,7 +67,7 @@ user-specified configurations.
     ]
 
     ## Optional: Filter evaluated before applying the configuration.
-    ## This option can be used to mange multiple configuration specific for
+    ## This option can be used to manage multiple configuration specific for
     ## a certain message type. If no filter is given, the configuration is applied.
     # [inputs.file.binary.filter]
     #   ## Filter message by the exact length in bytes (default: N/A).
@@ -169,8 +170,8 @@ determined using the format setting in `type`.
 
 The `timezone` setting allows to convert the extracted time to the
 given value timezone. By default the time will be interpreted as `utc`.
-Other valid values are `local`, i.e. the local timezone configured for
-the machine, or valid timezone-specification e.g. `Europe/Berlin`.
+Other valid values are `local` (the local timezone configured for
+the machine), or valid timezone-specification e.g. `Europe/Berlin`.
 
 ### `tag` specification
 

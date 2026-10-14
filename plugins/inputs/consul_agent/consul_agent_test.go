@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -22,10 +23,10 @@ func TestConsulStats(t *testing.T) {
 		{
 			name: "Metrics",
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"consul.rpc.request",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"count":  int(5),
 						"max":    float64(1),
 						"mean":   float64(1),
@@ -37,24 +38,24 @@ func TestConsulStats(t *testing.T) {
 					time.Unix(1639218930, 0),
 					1,
 				),
-				testutil.MustMetric(
+				metric.New(
 					"consul.consul.members.clients",
 					map[string]string{
 						"datacenter": "dc1",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": float64(0),
 					},
 					time.Unix(1639218930, 0),
 					2,
 				),
-				testutil.MustMetric(
+				metric.New(
 					"consul.api.http",
 					map[string]string{
 						"method": "GET",
 						"path":   "v1_agent_self",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"count":  int(1),
 						"max":    float64(4.14815616607666),
 						"mean":   float64(4.14815616607666),

@@ -23,6 +23,7 @@ import (
 	"github.com/tdrn-org/go-tr064/services/tr64desc/wandslifconfig"
 	"github.com/tdrn-org/go-tr064/services/tr64desc/wanpppconn"
 	"github.com/tdrn-org/go-tr064/services/tr64desc/wlanconfig"
+	"github.com/tdrn-org/go-tr064/services/tr64desc/x_wanfiber"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
@@ -94,6 +95,8 @@ func (f *Fritzbox) Init() error {
 			f.serviceHandlers[wanpppconn.ServiceShortType] = gatherPppInfo
 		case "dsl":
 			f.serviceHandlers[wandslifconfig.ServiceShortType] = gatherDslInfo
+		case "fiber":
+			f.serviceHandlers[x_wanfiber.ServiceShortType] = gatherFiberInfo
 		case "wlan":
 			f.serviceHandlers[wlanconfig.ServiceShortType] = gatherWlanInfo
 		case "hosts":
@@ -149,7 +152,7 @@ func gatherDeviceInfo(acc telegraf.Accumulator, deviceClient *tr064.Client, serv
 		"source":  serviceClient.TR064Client.DeviceUrl.Hostname(),
 		"service": serviceClient.Service.ShortId(),
 	}
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"uptime":           info.NewUpTime,
 		"model_name":       info.NewModelName,
 		"serial_number":    info.NewSerialNumber,
@@ -194,23 +197,23 @@ func gatherWanInfo(acc telegraf.Accumulator, deviceClient *tr064.Client, service
 			return fmt.Errorf("failed to parse total bytes received: %w", err)
 		}
 	} else {
-		// Fall back to wancommonifconfig service in case igdicfg is not available (only uint32 based)
+		// Fall back to wancommonifconfig service in case igdicfg is not available
 		totalBytesSentResponse := &wancommonifconfig.GetTotalBytesSentResponse{}
 		if err = serviceClient.GetTotalBytesSent(totalBytesSentResponse); err != nil {
 			return fmt.Errorf("failed to query bytes sent: %w", err)
 		}
-		totalBytesSent = uint64(totalBytesSentResponse.NewTotalBytesSent)
+		totalBytesSent = totalBytesSentResponse.NewTotalBytesSent
 		totalBytesReceivedResponse := &wancommonifconfig.GetTotalBytesReceivedResponse{}
 		if err = serviceClient.GetTotalBytesReceived(totalBytesReceivedResponse); err != nil {
 			return fmt.Errorf("failed to query bytes received: %w", err)
 		}
-		totalBytesReceived = uint64(totalBytesReceivedResponse.NewTotalBytesReceived)
+		totalBytesReceived = totalBytesReceivedResponse.NewTotalBytesReceived
 	}
 	tags := map[string]string{
 		"source":  serviceClient.TR064Client.DeviceUrl.Hostname(),
 		"service": serviceClient.Service.ShortId(),
 	}
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"layer1_upstream_max_bit_rate":   commonLinkProperties.NewLayer1UpstreamMaxBitRate,
 		"layer1_downstream_max_bit_rate": commonLinkProperties.NewLayer1DownstreamMaxBitRate,
 		"upstream_current_max_speed":     commonLinkProperties.NewX_AVM_DE_UpstreamCurrentMaxSpeed,
@@ -235,7 +238,7 @@ func gatherPppInfo(acc telegraf.Accumulator, deviceClient *tr064.Client, service
 		"source":  serviceClient.TR064Client.DeviceUrl.Hostname(),
 		"service": serviceClient.Service.ShortId(),
 	}
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"uptime":                  info.NewUptime,
 		"upstream_max_bit_rate":   info.NewUpstreamMaxBitRate,
 		"downstream_max_bit_rate": info.NewDownstreamMaxBitRate,
@@ -264,7 +267,7 @@ func gatherDslInfo(acc telegraf.Accumulator, deviceClient *tr064.Client, service
 		"service": serviceClient.Service.ShortId(),
 		"status":  info.NewStatus,
 	}
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"upstream_curr_rate":      info.NewUpstreamCurrRate,
 		"downstream_curr_rate":    info.NewDownstreamCurrRate,
 		"upstream_max_rate":       info.NewUpstreamMaxRate,
@@ -295,6 +298,53 @@ func gatherDslInfo(acc telegraf.Accumulator, deviceClient *tr064.Client, service
 	return nil
 }
 
+func gatherFiberInfo(acc telegraf.Accumulator, deviceClient *tr064.Client, service tr064.ServiceDescriptor) error {
+	serviceClient := x_wanfiber.ServiceClient{
+		TR064Client: deviceClient,
+		Service:     service,
+	}
+	info := &x_wanfiber.GetInfoResponse{}
+	if err := serviceClient.GetInfo(info); err != nil {
+		return fmt.Errorf("failed to query Fiber info: %w", err)
+	}
+	statistics := &x_wanfiber.GetStatisticsResponse{}
+	if err := serviceClient.GetStatistics(statistics); err != nil {
+		return fmt.Errorf("failed to query Fiber statistics: %w", err)
+	}
+	tags := map[string]string{
+		"source":  serviceClient.TR064Client.DeviceUrl.Hostname(),
+		"service": serviceClient.Service.ShortId(),
+	}
+	fields := map[string]any{
+		"optical_signal_level":           info.NewOpticalSignalLevel,
+		"lower_optical_threshold":        info.NewLowerOpticalThreshold,
+		"upper_optical_threshold":        info.NewUpperOpticalThreshold,
+		"transmit_optical_level":         info.NewTransmitOpticalLevel,
+		"lower_transmit_power_threshold": info.NewLowerTransmitPowerThreshold,
+		"upper_transmit_power_threshold": info.NewUpperTransmitPowerThreshold,
+		"sfp_vendor":                     info.NewSFPVendor,
+		"sfp_part_number":                info.NewSFPPartNumber,
+		"sfp_serial_number":              info.NewSFPSerialNumber,
+		"sfp_type":                       info.NewSFPType,
+		"tx_wave_length":                 info.NewTXWaveLength,
+		"fiber_mode":                     info.NewFiberMode,
+		"bytes_sent":                     statistics.NewBytesSent,
+		"bytes_received":                 statistics.NewBytesReceived,
+		"packets_sent":                   statistics.NewPacketsSent,
+		"packets_received":               statistics.NewPacketsReceived,
+		"packet_errors_sent":             statistics.NewPacketErrorsSent,
+		"packet_errors_received":         statistics.NewPacketErrorsReceived,
+		"packets_multicast":              statistics.NewPacketsMulticast,
+		"connection_rate_down":           statistics.NewConnectionRateDown,
+		"connection_rate_up":             statistics.NewConnectionRateUp,
+		"best_train_state":               statistics.NewBestTrainState,
+		"resyncs":                        statistics.NewResyncs,
+		"minutes_in_showtime":            statistics.NewMinutesInShowtime,
+	}
+	acc.AddFields("fritzbox_fiber", fields, tags)
+	return nil
+}
+
 func gatherWlanInfo(acc telegraf.Accumulator, deviceClient *tr064.Client, service tr064.ServiceDescriptor) error {
 	serviceClient := wlanconfig.ServiceClient{
 		TR064Client: deviceClient,
@@ -318,7 +368,7 @@ func gatherWlanInfo(acc telegraf.Accumulator, deviceClient *tr064.Client, servic
 		"channel": strconv.Itoa(int(info.NewChannel)),
 		"band":    wlanBandFromInfo(info),
 	}
-	fields := map[string]interface{}{
+	fields := map[string]any{
 		"total_associations": totalAssociations.NewTotalAssociations,
 	}
 	acc.AddGauge("fritzbox_wlan", fields, tags)
@@ -361,7 +411,7 @@ func gatherHostsInfo(acc telegraf.Accumulator, deviceClient *tr064.Client, servi
 			"link_type":    connection.InterfaceType,
 			"link_name":    connection.InterfaceName,
 		}
-		fields := map[string]interface{}{
+		fields := map[string]any{
 			"max_data_rate_tx": connection.MaxDataRateTx,
 			"max_data_rate_rx": connection.MaxDataRateRx,
 			"cur_data_rate_tx": connection.CurDataRateTx,

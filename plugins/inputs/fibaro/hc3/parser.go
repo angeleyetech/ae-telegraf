@@ -50,7 +50,7 @@ func Parse(acc telegraf.Accumulator, sectionBytes, roomBytes, devicesBytes []byt
 			"name":     device.Name,
 			"type":     device.Type,
 		}
-		fields := make(map[string]interface{})
+		fields := make(map[string]any)
 
 		if device.Properties.BatteryLevel != nil {
 			fields["batteryLevel"] = *device.Properties.BatteryLevel
@@ -71,6 +71,15 @@ func Parse(acc telegraf.Accumulator, sectionBytes, roomBytes, devicesBytes []byt
 				acc.AddError(fmt.Errorf("unable to convert value: %w", err))
 			} else {
 				fields["value"] = v
+			}
+		}
+
+		if device.Properties.Value2 != nil {
+			v, err := internal.ToFloat64(device.Properties.Value2)
+			if err != nil {
+				acc.AddError(fmt.Errorf("unable to convert value2: %w", err))
+			} else {
+				fields["value2"] = v
 			}
 		}
 

@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
+	"net/netip"
 	"os"
 	"time"
 
@@ -35,12 +37,14 @@ type InternetSpeed struct {
 	Cache            bool     `toml:"cache"`
 	Connections      int      `toml:"connections"`
 	TestMode         string   `toml:"test_mode"`
+	LocalAddress     string   `toml:"local_address"`
 
 	Log telegraf.Logger `toml:"-"`
 
 	server       *speedtest.Server // The main(best) server
 	servers      speedtest.Servers // Auxiliary servers
 	serverFilter filter.Filter
+	localAddr    *net.TCPAddr
 }
 
 func (*InternetSpeed) SampleConfig() string {
@@ -57,9 +61,22 @@ func (is *InternetSpeed) Init() error {
 	}
 
 	var err error
-	is.serverFilter, err = filter.NewIncludeExcludeFilterDefaults(is.ServerIDInclude, is.ServerIDExclude, false, false)
+	is.serverFilter, err = filter.NewIncludeExcludeFilterDefaults(is.ServerIDInclude, is.ServerIDExclude, true, false)
 	if err != nil {
 		return fmt.Errorf("error compiling server ID filters: %w", err)
+	}
+
+	// The speedtest library only logs an unusable local address in its debug
+	// output and then silently uses the default route, so reject such values
+	// here. The address is parsed instead of resolved to keep Init off the
+	// network; whether it is assigned is left to the bind during the tests,
+	// which is retried every interval.
+	if is.LocalAddress != "" {
+		addr, err := netip.ParseAddr(is.LocalAddress)
+		if err != nil {
+			return fmt.Errorf("parsing local address failed: %w", err)
+		}
+		is.localAddr = net.TCPAddrFromAddrPort(netip.AddrPortFrom(addr, 0))
 	}
 
 	return nil
@@ -80,10 +97,23 @@ func (is *InternetSpeed) Gather(acc telegraf.Accumulator) error {
 		return fmt.Errorf("ping test failed: %w", err)
 	}
 
-	analyzer := speedtest.NewPacketLossAnalyzer(&speedtest.PacketLossAnalyzerOptions{
+	// The analyzer creates its own dialers and does not use the source address
+	// of the client, so set the dialers explicitly to keep the packet-loss test
+	// on the same link as the other measurements. The sending timeout is set to
+	// the library default as it is also the timeout of those dialers.
+	options := &speedtest.PacketLossAnalyzerOptions{
 		PacketSendingInterval: time.Millisecond * 100,
+		PacketSendingTimeout:  time.Second * 5,
 		SamplingDuration:      time.Second * 15,
-	})
+	}
+	if is.localAddr != nil {
+		options.TCPDialer = &net.Dialer{Timeout: options.PacketSendingTimeout, LocalAddr: is.localAddr}
+		options.UDPDialer = &net.Dialer{
+			Timeout:   options.PacketSendingTimeout,
+			LocalAddr: &net.UDPAddr{IP: is.localAddr.IP, Zone: is.localAddr.Zone},
+		}
+	}
+	analyzer := speedtest.NewPacketLossAnalyzer(options)
 
 	var pLoss *transport.PLoss
 
@@ -155,6 +185,7 @@ func (is *InternetSpeed) findClosestServer() error {
 		UserAgent:  internal.ProductToken(),
 		PingMode:   proto,
 		SavingMode: is.MemorySavingMode,
+		Source:     is.LocalAddress,
 	}))
 	if is.Connections > 0 {
 		client.SetNThread(is.Connections)
@@ -170,30 +201,38 @@ func (is *InternetSpeed) findClosestServer() error {
 		return errors.New("no servers found")
 	}
 
-	// Return the first match or the server with the lowest latency
-	// when filter mismatch all servers.
+	return is.selectServer()
+}
+
+func (is *InternetSpeed) selectServer() error {
+	// Select the server with the lowest latency matching the filter.
+	// If no server has latency info, use the first match (closest by distance).
 	var minLatency int64 = math.MaxInt64
 	selectIndex := -1
 	for index, server := range is.servers {
-		if is.serverFilter.Match(server.ID) {
+		if !is.serverFilter.Match(server.ID) {
+			continue
+		}
+		if selectIndex == -1 {
+			// Select the first server we found and store the latency if it is valid
 			selectIndex = index
-			break
-		}
-		if server.Latency > 0 {
-			if minLatency > server.Latency.Milliseconds() {
+			if server.Latency > 0 {
 				minLatency = server.Latency.Milliseconds()
-				selectIndex = index
 			}
+		} else if server.Latency > 0 && server.Latency.Milliseconds() < minLatency {
+			// Select the server if it has a lower latency than the previous one
+			selectIndex = index
+			minLatency = server.Latency.Milliseconds()
 		}
 	}
 
-	if selectIndex != -1 {
-		is.server = is.servers[selectIndex]
-		is.Log.Debugf("using server %s in %s (%s)\n", is.server.ID, is.server.Name, is.server.Host)
-		return nil
+	if selectIndex == -1 {
+		return errors.New("no server set: filter excluded all servers or no available server found")
 	}
 
-	return errors.New("no server set: filter excluded all servers or no available server found")
+	is.server = is.servers[selectIndex]
+	is.Log.Debugf("using server %s in %s (%s)\n", is.server.ID, is.server.Name, is.server.Host)
+	return nil
 }
 
 func timeDurationMillisecondToFloat64(d time.Duration) float64 {

@@ -15,10 +15,9 @@ This plugin collects weather and forecast data from the
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -52,13 +51,6 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
   ## "metric", "imperial", or "standard".
   ## The default is "metric" if not specified.
   # units = "metric"
-
-  ## Style to query the current weather; available options
-  ##   batch      -- query multiple cities at once using the "group" endpoint
-  ##   individual -- query each city individually using the "weather" endpoint
-  ## You should use "individual" here as it is documented and provides more
-  ## frequent updates. The default is "batch" for backward compatibility.
-  # query_style = "batch"
 
   ## Query interval to fetch data.
   ## By default the global 'interval' setting is used. You should override the

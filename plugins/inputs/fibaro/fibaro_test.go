@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -88,7 +89,7 @@ func TestJSONSuccess(t *testing.T) {
 	require.Equal(t, uint64(5), acc.NMetrics())
 
 	expected := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"fibaro",
 			map[string]string{
 				"deviceId": "1",
@@ -97,12 +98,12 @@ func TestJSONSuccess(t *testing.T) {
 				"name":     "Device 1",
 				"type":     "com.fibaro.binarySwitch",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": float64(0),
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric(
+		metric.New(
 			"fibaro",
 			map[string]string{
 				"deviceId": "2",
@@ -111,12 +112,12 @@ func TestJSONSuccess(t *testing.T) {
 				"name":     "Device 2",
 				"type":     "com.fibaro.binarySwitch",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": float64(1),
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric(
+		metric.New(
 			"fibaro",
 			map[string]string{
 				"deviceId": "3",
@@ -125,12 +126,12 @@ func TestJSONSuccess(t *testing.T) {
 				"name":     "Device 3",
 				"type":     "com.fibaro.multilevelSwitch",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": float64(67),
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric(
+		metric.New(
 			"fibaro",
 			map[string]string{
 				"deviceId": "4",
@@ -139,13 +140,13 @@ func TestJSONSuccess(t *testing.T) {
 				"name":     "Device 4",
 				"type":     "com.fibaro.temperatureSensor",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"batteryLevel": float64(100),
 				"value":        float64(22.8),
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric(
+		metric.New(
 			"fibaro",
 			map[string]string{
 				"deviceId": "5",
@@ -154,7 +155,7 @@ func TestJSONSuccess(t *testing.T) {
 				"name":     "Device 5",
 				"type":     "com.fibaro.FGRM222",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"energy": float64(4.33),
 				"power":  float64(0.7),
 				"value":  float64(50),
@@ -220,7 +221,7 @@ func TestHC3JSON(t *testing.T) {
 	require.Equal(t, uint64(5), acc.NMetrics())
 
 	expected := []telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"fibaro",
 			map[string]string{
 				"deviceId": "1",
@@ -229,12 +230,12 @@ func TestHC3JSON(t *testing.T) {
 				"name":     "Device 1",
 				"type":     "com.fibaro.binarySwitch",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": float64(0),
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric(
+		metric.New(
 			"fibaro",
 			map[string]string{
 				"deviceId": "2",
@@ -243,12 +244,12 @@ func TestHC3JSON(t *testing.T) {
 				"name":     "Device 2",
 				"type":     "com.fibaro.binarySwitch",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": float64(1),
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric(
+		metric.New(
 			"fibaro",
 			map[string]string{
 				"deviceId": "3",
@@ -257,12 +258,12 @@ func TestHC3JSON(t *testing.T) {
 				"name":     "Device 3",
 				"type":     "com.fibaro.multilevelSwitch",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": float64(67),
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric(
+		metric.New(
 			"fibaro",
 			map[string]string{
 				"deviceId": "4",
@@ -271,13 +272,13 @@ func TestHC3JSON(t *testing.T) {
 				"name":     "Device 4",
 				"type":     "com.fibaro.temperatureSensor",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"batteryLevel": float64(100),
 				"value":        float64(22.8),
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric(
+		metric.New(
 			"fibaro",
 			map[string]string{
 				"deviceId": "5",
@@ -286,10 +287,11 @@ func TestHC3JSON(t *testing.T) {
 				"name":     "Device 5",
 				"type":     "com.fibaro.FGRM222",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"energy": float64(4.33),
 				"power":  float64(0.7),
 				"value":  float64(34),
+				"value2": float64(75),
 			},
 			time.Unix(0, 0),
 		),

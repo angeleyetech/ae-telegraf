@@ -11,10 +11,9 @@ download/upload speed, latency etc using the [speedtest.net service][speedtest].
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -33,6 +32,10 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
   ## Caches the closest server location
   # cache = false
+
+  ## Local IP address to bind to when connecting to the servers
+  ## Use the local address assigned by the operating system by default.
+  # local_address = ""
 
   ## Number of concurrent connections
   ## By default or set to zero, the number of CPU cores is used. Use this to

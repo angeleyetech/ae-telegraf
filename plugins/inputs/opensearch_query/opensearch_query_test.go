@@ -10,14 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/go-connections/nat"
 	"github.com/opensearch-project/opensearch-go/v2/opensearchutil"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
-	"github.com/influxdata/telegraf/plugins/common/tls"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -52,10 +51,10 @@ func testData() []osAggregationQueryTest {
 				mapMetricFields: map[string]string{"size": "long"},
 			},
 			expectedMetrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"measurement1",
 					map[string]string{"URI_keyword": "/downloads/product_1"},
-					map[string]interface{}{"size_avg_value": float64(202.30038022813687), "doc_count": int64(263)},
+					map[string]any{"size_avg_value": float64(202.30038022813687), "doc_count": int64(263)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
 			},
@@ -74,16 +73,16 @@ func testData() []osAggregationQueryTest {
 				mapMetricFields: map[string]string{"size": "long"},
 			},
 			expectedMetrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"measurement2",
 					map[string]string{"URI_keyword": "/downloads/product_1"},
-					map[string]interface{}{"size_max_value": float64(3301), "doc_count": int64(263)},
+					map[string]any{"size_max_value": float64(3301), "doc_count": int64(263)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement2",
 					map[string]string{"URI_keyword": "/downloads/product_2"},
-					map[string]interface{}{"size_max_value": float64(3318), "doc_count": int64(237)},
+					map[string]any{"size_max_value": float64(3318), "doc_count": int64(237)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
 			},
@@ -102,22 +101,22 @@ func testData() []osAggregationQueryTest {
 				mapMetricFields: map[string]string{"size": "long"},
 			},
 			expectedMetrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"measurement3",
 					map[string]string{"response_keyword": "200"},
-					map[string]interface{}{"size_sum_value": float64(22790), "doc_count": int64(22)},
+					map[string]any{"size_sum_value": float64(22790), "doc_count": int64(22)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement3",
 					map[string]string{"response_keyword": "304"},
-					map[string]interface{}{"size_sum_value": float64(0), "doc_count": int64(219)},
+					map[string]any{"size_sum_value": float64(0), "doc_count": int64(219)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement3",
 					map[string]string{"response_keyword": "404"},
-					map[string]interface{}{"size_sum_value": float64(86932), "doc_count": int64(259)},
+					map[string]any{"size_sum_value": float64(86932), "doc_count": int64(259)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
 			},
@@ -138,52 +137,52 @@ func testData() []osAggregationQueryTest {
 				mapMetricFields:   map[string]string{"size": "long", "response_time": "long"},
 			},
 			expectedMetrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"measurement4",
 					map[string]string{"response_keyword": "404", "URI_keyword": "/downloads/product_1", "method_keyword": "GET"},
-					map[string]interface{}{"size_min_value": float64(318), "response_time_min_value": float64(126), "doc_count": int64(146)},
+					map[string]any{"size_min_value": float64(318), "response_time_min_value": float64(126), "doc_count": int64(146)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement4",
 					map[string]string{"response_keyword": "304", "URI_keyword": "/downloads/product_1", "method_keyword": "GET"},
-					map[string]interface{}{"size_min_value": float64(0), "response_time_min_value": float64(71), "doc_count": int64(113)},
+					map[string]any{"size_min_value": float64(0), "response_time_min_value": float64(71), "doc_count": int64(113)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement4",
 					map[string]string{"response_keyword": "200", "URI_keyword": "/downloads/product_1", "method_keyword": "GET"},
-					map[string]interface{}{"size_min_value": float64(490), "response_time_min_value": float64(1514), "doc_count": int64(3)},
+					map[string]any{"size_min_value": float64(490), "response_time_min_value": float64(1514), "doc_count": int64(3)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement4",
 					map[string]string{"response_keyword": "404", "URI_keyword": "/downloads/product_2", "method_keyword": "GET"},
-					map[string]interface{}{"size_min_value": float64(318), "response_time_min_value": float64(237), "doc_count": int64(113)},
+					map[string]any{"size_min_value": float64(318), "response_time_min_value": float64(237), "doc_count": int64(113)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement4",
 					map[string]string{"response_keyword": "304", "URI_keyword": "/downloads/product_2", "method_keyword": "GET"},
-					map[string]interface{}{"size_min_value": float64(0), "response_time_min_value": float64(134), "doc_count": int64(106)},
+					map[string]any{"size_min_value": float64(0), "response_time_min_value": float64(134), "doc_count": int64(106)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement4",
 					map[string]string{"response_keyword": "200", "URI_keyword": "/downloads/product_2", "method_keyword": "GET"},
-					map[string]interface{}{"size_min_value": float64(490), "response_time_min_value": float64(2), "doc_count": int64(13)},
+					map[string]any{"size_min_value": float64(490), "response_time_min_value": float64(2), "doc_count": int64(13)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement4",
 					map[string]string{"response_keyword": "200", "URI_keyword": "/downloads/product_1", "method_keyword": "HEAD"},
-					map[string]interface{}{"size_min_value": float64(0), "response_time_min_value": float64(8479), "doc_count": int64(1)},
+					map[string]any{"size_min_value": float64(0), "response_time_min_value": float64(8479), "doc_count": int64(1)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement4",
 					map[string]string{"response_keyword": "200", "URI_keyword": "/downloads/product_2", "method_keyword": "HEAD"},
-					map[string]interface{}{"size_min_value": float64(0), "response_time_min_value": float64(1059), "doc_count": int64(5)},
+					map[string]any{"size_min_value": float64(0), "response_time_min_value": float64(1059), "doc_count": int64(5)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
 			},
@@ -200,10 +199,10 @@ func testData() []osAggregationQueryTest {
 				mapMetricFields: map[string]string{},
 			},
 			expectedMetrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"measurement5",
 					map[string]string{"URI_keyword": "/downloads/product_2"},
-					map[string]interface{}{"doc_count": int64(237)},
+					map[string]any{"doc_count": int64(237)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
 			},
@@ -220,16 +219,16 @@ func testData() []osAggregationQueryTest {
 				mapMetricFields: map[string]string{},
 			},
 			expectedMetrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"measurement6",
 					map[string]string{"response_keyword": "200", "URI_keyword": "/downloads/product_1"},
-					map[string]interface{}{"doc_count": int64(4)},
+					map[string]any{"doc_count": int64(4)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement6",
 					map[string]string{"response_keyword": "200", "URI_keyword": "/downloads/product_2"},
-					map[string]interface{}{"doc_count": int64(18)},
+					map[string]any{"doc_count": int64(18)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
 			},
@@ -245,10 +244,10 @@ func testData() []osAggregationQueryTest {
 				mapMetricFields: map[string]string{},
 			},
 			expectedMetrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"measurement7",
 					map[string]string{},
-					map[string]interface{}{"doc_count": int64(22)},
+					map[string]any{"doc_count": int64(22)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
 			},
@@ -266,10 +265,10 @@ func testData() []osAggregationQueryTest {
 				mapMetricFields: map[string]string{"size": "long"},
 			},
 			expectedMetrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"measurement8",
 					map[string]string{},
-					map[string]interface{}{"size_max_value": float64(3318), "doc_count": int64(500)},
+					map[string]any{"size_max_value": float64(3318), "doc_count": int64(500)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
 			},
@@ -324,10 +323,10 @@ func testData() []osAggregationQueryTest {
 				mapMetricFields: map[string]string{"size": "long"},
 			},
 			expectedMetrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"measurement12",
 					map[string]string{},
-					map[string]interface{}{"doc_count": int64(0)},
+					map[string]any{"doc_count": int64(0)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
 			},
@@ -372,10 +371,10 @@ func testData() []osAggregationQueryTest {
 				mapMetricFields: map[string]string{"size": "long"},
 			},
 			expectedMetrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"measurement15",
 					map[string]string{"URI_keyword": "/downloads/product_1"},
-					map[string]interface{}{
+					map[string]any{
 						"size_stats_sum":   float64(53205),
 						"size_stats_min":   float64(0),
 						"size_stats_max":   float64(3301),
@@ -384,10 +383,10 @@ func testData() []osAggregationQueryTest {
 						"doc_count":        int64(263)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement15",
 					map[string]string{"URI_keyword": "/downloads/product_2"},
-					map[string]interface{}{
+					map[string]any{
 						"size_stats_sum":   float64(56517),
 						"size_stats_min":   float64(0),
 						"size_stats_max":   float64(3318),
@@ -412,10 +411,10 @@ func testData() []osAggregationQueryTest {
 				mapMetricFields: map[string]string{"size": "long"},
 			},
 			expectedMetrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"measurement16",
 					map[string]string{"URI_keyword": "/downloads/product_1"},
-					map[string]interface{}{
+					map[string]any{
 						"size_extended_stats_avg":                                   float64(202.30038022813687),
 						"size_extended_stats_count":                                 float64(263),
 						"size_extended_stats_max":                                   float64(3301),
@@ -437,10 +436,10 @@ func testData() []osAggregationQueryTest {
 						"doc_count":                                                 int64(263)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement16",
 					map[string]string{"URI_keyword": "/downloads/product_2"},
-					map[string]interface{}{
+					map[string]any{
 						"size_extended_stats_avg":                                   float64(238.46835443037975),
 						"size_extended_stats_count":                                 float64(237),
 						"size_extended_stats_max":                                   float64(3318),
@@ -478,10 +477,10 @@ func testData() []osAggregationQueryTest {
 				mapMetricFields: map[string]string{"size": "long"},
 			},
 			expectedMetrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"measurement16",
 					map[string]string{"URI_keyword": "/downloads/product_1"},
-					map[string]interface{}{
+					map[string]any{
 						"size_percentiles_values_1.0":  float64(0),
 						"size_percentiles_values_5.0":  float64(0),
 						"size_percentiles_values_25.0": float64(0),
@@ -492,10 +491,10 @@ func testData() []osAggregationQueryTest {
 						"doc_count":                    int64(263)},
 					time.Date(2018, 6, 14, 5, 51, 53, 266176036, time.UTC),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"measurement16",
 					map[string]string{"URI_keyword": "/downloads/product_2"},
-					map[string]interface{}{
+					map[string]any{
 						"size_percentiles_values_1.0":  float64(0),
 						"size_percentiles_values_5.0":  float64(0),
 						"size_percentiles_values_25.0": float64(0),
@@ -517,12 +516,12 @@ func opensearchTestImages() []string {
 
 func newOpensearchQuery(url string) *OpensearchQuery {
 	return &OpensearchQuery{
-		URLs:         []string{url},
-		Timeout:      config.Duration(time.Second * 30),
-		Log:          testutil.Logger{},
-		Username:     config.NewSecret([]byte("admin")),
-		Password:     config.NewSecret([]byte("admin")),
-		ClientConfig: tls.ClientConfig{InsecureSkipVerify: true},
+		URLs:               []string{url},
+		Timeout:            config.Duration(time.Second * 30),
+		Log:                testutil.Logger{},
+		Username:           config.NewSecret([]byte("admin")),
+		Password:           config.NewSecret([]byte("admin")),
+		InsecureSkipVerify: true,
 	}
 }
 
@@ -549,7 +548,7 @@ func setupIntegrationTest(t *testing.T, image string) (*testutil.Container, *Ope
 		},
 		WaitingFor: wait.ForAll(
 			wait.ForLog(".opendistro_security is used as internal security index."),
-			wait.ForListeningPort(nat.Port(servicePort)),
+			wait.ForListeningPort(servicePort),
 		),
 	}
 	err = container.Start()

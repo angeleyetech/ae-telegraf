@@ -14,6 +14,7 @@ import (
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -275,10 +276,10 @@ func TestNaNIsSkipped(t *testing.T) {
 	require.NoError(t, err)
 
 	err = plugin.Write([]telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"cpu",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"time_idle": math.NaN(),
 			},
 			time.Now()),
@@ -296,10 +297,10 @@ func TestInfIsSkipped(t *testing.T) {
 	require.NoError(t, err)
 
 	err = plugin.Write([]telegraf.Metric{
-		testutil.MustMetric(
+		metric.New(
 			"cpu",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"time_idle": math.Inf(0),
 			},
 			time.Now()),
@@ -321,12 +322,12 @@ func TestNonZeroRateIntervalConvertsRatesToCount(t *testing.T) {
 		{
 			"convert counter metrics to rate",
 			[]telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"count_metric",
 					map[string]string{
 						"metric_type": "counter",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": 100,
 					},
 					time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC),
@@ -353,12 +354,12 @@ func TestNonZeroRateIntervalConvertsRatesToCount(t *testing.T) {
 		{
 			"convert count value in timing metrics to rate",
 			[]telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"timing_metric",
 					map[string]string{
 						"metric_type": "timing",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"count":  1,
 						"lower":  float64(10),
 						"mean":   float64(10),
@@ -475,12 +476,12 @@ func TestNonZeroRateIntervalConvertsRatesToCount(t *testing.T) {
 		{
 			"convert count value in histogram metrics to rate",
 			[]telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"histogram_metric",
 					map[string]string{
 						"metric_type": "histogram",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"count":  1,
 						"lower":  float64(10),
 						"mean":   float64(10),
@@ -617,12 +618,12 @@ func TestZeroRateIntervalConvertsRatesToCount(t *testing.T) {
 		{
 			"does not convert counter metrics to rate",
 			[]telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"count_metric",
 					map[string]string{
 						"metric_type": "counter",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value": 100,
 					},
 					time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC),
@@ -649,12 +650,12 @@ func TestZeroRateIntervalConvertsRatesToCount(t *testing.T) {
 		{
 			"does not convert count value in timing metrics to rate",
 			[]telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"timing_metric",
 					map[string]string{
 						"metric_type": "timing",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"count":  1,
 						"lower":  float64(10),
 						"mean":   float64(10),
@@ -771,12 +772,12 @@ func TestZeroRateIntervalConvertsRatesToCount(t *testing.T) {
 		{
 			"does not convert count value in histogram metrics to rate",
 			[]telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"histogram_metric",
 					map[string]string{
 						"metric_type": "histogram",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"count":  1,
 						"lower":  float64(10),
 						"mean":   float64(10),

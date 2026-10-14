@@ -18,6 +18,7 @@ import (
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/influxdata/telegraf/testutil"
 )
@@ -240,7 +241,7 @@ func TestPluginMetricsInitialize(t *testing.T) {
 		expectedErrorString string
 		regions             []string
 		discoveryRegions    []string
-		metrics             []*metric
+		metrics             []*metricDef
 	}{
 		{
 			name:            "Valid project",
@@ -248,7 +249,7 @@ func TestPluginMetricsInitialize(t *testing.T) {
 			regions:         []string{"cn-shanghai"},
 			accessKeyID:     "dummy",
 			accessKeySecret: "dummy",
-			metrics: []*metric{
+			metrics: []*metricDef{
 				{
 					Dimensions: `{"instanceId": "i-abcdefgh123456"}`,
 				},
@@ -260,7 +261,7 @@ func TestPluginMetricsInitialize(t *testing.T) {
 			regions:         []string{"cn-shanghai"},
 			accessKeyID:     "dummy",
 			accessKeySecret: "dummy",
-			metrics: []*metric{
+			metrics: []*metricDef{
 				{
 					Dimensions: `[{"instanceId": "p-example"},{"instanceId": "q-example"}]`,
 				},
@@ -273,7 +274,7 @@ func TestPluginMetricsInitialize(t *testing.T) {
 			accessKeyID:         "dummy",
 			accessKeySecret:     "dummy",
 			expectedErrorString: `cannot parse dimensions (neither obj, nor array) "[": unexpected end of JSON input`,
-			metrics: []*metric{
+			metrics: []*metricDef{
 				{
 					Dimensions: `[`,
 				},
@@ -340,7 +341,7 @@ func TestGatherMetric(t *testing.T) {
 		Regions:     []string{"cn-shanghai"},
 	}
 
-	metric := &metric{
+	md := &metricDef{
 		Dimensions: `"instanceId": "i-abcdefgh123456"`,
 	}
 
@@ -364,20 +365,20 @@ func TestGatherMetric(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var acc telegraf.Accumulator
-			require.EqualError(t, plugin.gatherMetric(acc, tt.metricName, metric), tt.expectedErrorString)
+			require.EqualError(t, plugin.gatherMetric(acc, tt.metricName, md), tt.expectedErrorString)
 		})
 	}
 }
 
 func TestGather(t *testing.T) {
-	m := &metric{
+	m := &metricDef{
 		Dimensions: `{"instanceId": "i-abcdefgh123456"}`,
 	}
 	plugin := &AliyunCMS{
 		AccessKeyID:     "my_access_key_id",
 		AccessKeySecret: "my_access_key_secret",
 		Project:         "acs_slb_dashboard",
-		Metrics:         []*metric{m},
+		Metrics:         []*metricDef{m},
 		RateLimit:       200,
 		measurement:     formatMeasurement("acs_slb_dashboard"),
 		Regions:         []string{"cn-shanghai"},
@@ -396,7 +397,7 @@ func TestGather(t *testing.T) {
 			name:        "Empty data point",
 			metricNames: []string{"EmptyDatapoint"},
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"aliyuncms_acs_slb_dashboard",
 					nil,
 					nil,
@@ -408,13 +409,13 @@ func TestGather(t *testing.T) {
 			hasMeasurement: true,
 			metricNames:    []string{"InstanceActiveConnection"},
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"aliyuncms_acs_slb_dashboard",
 					map[string]string{
 						"instanceId": "i-abcdefgh123456",
 						"userId":     "1234567898765432",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"instance_active_connection_minimum": float64(100),
 						"instance_active_connection_maximum": float64(200),
 						"instance_active_connection_average": float64(150),
@@ -445,7 +446,7 @@ func TestGetDiscoveryDataAcrossRegions(t *testing.T) {
 		project             string
 		region              string
 		httpResp            *http.Response
-		discData            map[string]interface{}
+		discData            map[string]any
 		totalCount          int
 		pageSize            int
 		pageNumber          int
@@ -483,7 +484,7 @@ func TestGetDiscoveryDataAcrossRegions(t *testing.T) {
 						"PageNumber": 1
 						}`)),
 			},
-			discData:            map[string]interface{}{"bla": map[string]interface{}{"LoadBalancerId": "bla"}},
+			discData:            map[string]any{"bla": map[string]any{"LoadBalancerId": "bla"}},
 			totalCount:          1,
 			pageSize:            1,
 			pageNumber:          1,

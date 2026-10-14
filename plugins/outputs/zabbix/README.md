@@ -9,14 +9,13 @@ of Zabbix as long as the protocol doesn't change.
 💻 all
 
 [zabbix]: https://www.zabbix.com/
-[traps]: https://www.zabbix.com/documentation/current/en/manual/appendix/items/trapper
+[traps]: https://www.zabbix.com/documentation/current/en/manual/config/items/itemtypes/trapper
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -70,8 +69,8 @@ items configured in Zabbix are [Zabbix trapper][zabbixtrapper] or
 `agent_active = true` will send data as _agent data_, expecting active Zabbix
 agent items.
 
-[zabbixtrapper]: https://www.zabbix.com/documentation/6.4/en/manual/config/items/itemtypes/trapper?hl=Trapper
-[zabbixagentactive]: https://www.zabbix.com/documentation/6.4/en/manual/config/items/itemtypes/zabbix_agent
+[zabbixtrapper]: https://www.zabbix.com/documentation/current/en/manual/config/items/itemtypes/trapper?hl=Trapper
+[zabbixagentactive]: https://www.zabbix.com/documentation/current/en/manual/config/items/itemtypes/zabbix_agent
 
 ### key_prefix
 
@@ -175,7 +174,7 @@ measurement,host=hostname valueA=0,valueB=1
 
 It will generate this Zabbix metrics:
 
-```json
+```jsonl
 {"host": "hostname", "key": "telegraf.measurement.valueA", "value": "0"}
 {"host": "hostname", "key": "telegraf.measurement.valueB", "value": "1"}
 ```
@@ -189,7 +188,7 @@ measurement,host=hostname,tagA=keyA,tagB=keyB valueA=0,valueB=1
 
 Zabbix generated metrics:
 
-```json
+```jsonl
 {"host": "hostname", "key": "telegraf.measurement.valueA[keyA,keyB]", "value": "0"}
 {"host": "hostname", "key": "telegraf.measurement.valueB[keyA,keyB]", "value": "1"}
 ```
@@ -203,7 +202,7 @@ measurement,host=hostname,aaaTag=999,zzzTag=111 value=0
 
 Will generate this Zabbix metric:
 
-```json
+```jsonl
 {"host": "hostname", "key": "telegraf.measurement.value[999,111]", "value": "0"}
 ```
 
@@ -229,7 +228,7 @@ the low-level discovery (LLD) data is sent.
 Sending LLD to Zabbix is a heavy-weight process and is only done at the interval
 per the lld_send_interval setting.
 
-[lld]: https://www.zabbix.com/documentation/current/manual/discovery/low_level_discovery
+[lld]: https://www.zabbix.com/documentation/current/en/manual/discovery/low_level_discovery
 
 ### Design
 
@@ -351,7 +350,7 @@ taginclude = ["host", "container_name"]
 ```
 
 Allowing only the tags "host" and "container_name" to be used to generate the
-key (and loosing the information provided in the others tags).
+key (and losing the information provided in the others tags).
 
 ## Examples of metrics converted to traps
 

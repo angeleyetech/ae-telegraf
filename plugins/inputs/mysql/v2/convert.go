@@ -6,13 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
-type conversionFunc func(value sql.RawBytes) (interface{}, error)
+type conversionFunc func(value sql.RawBytes) (any, error)
 
 // ParseInt parses the given sql.RawBytes value into an int64.
 // It returns the parsed value and an error if the parsing fails.
-func ParseInt(value sql.RawBytes) (interface{}, error) {
+func ParseInt(value sql.RawBytes) (any, error) {
 	v, err := strconv.ParseInt(string(value), 10, 64)
 
 	// Ignore ErrRange.  When this error is set the returned value is "the
@@ -27,19 +28,19 @@ func ParseInt(value sql.RawBytes) (interface{}, error) {
 
 // ParseUint parses the given sql.RawBytes value into an uint64.
 // It returns the parsed value and an error if the parsing fails.
-func ParseUint(value sql.RawBytes) (interface{}, error) {
+func ParseUint(value sql.RawBytes) (any, error) {
 	return strconv.ParseUint(string(value), 10, 64)
 }
 
 // ParseFloat parses the given sql.RawBytes value into a float64.
 // It returns the parsed value and an error if the parsing fails.
-func ParseFloat(value sql.RawBytes) (interface{}, error) {
+func ParseFloat(value sql.RawBytes) (any, error) {
 	return strconv.ParseFloat(string(value), 64)
 }
 
 // ParseBoolAsInteger parses the given sql.RawBytes value into an int64
 // representing a boolean value. It returns 1 for "YES" or "ON" and 0 otherwise.
-func ParseBoolAsInteger(value sql.RawBytes) (interface{}, error) {
+func ParseBoolAsInteger(value sql.RawBytes) (any, error) {
 	if bytes.EqualFold(value, []byte("YES")) || bytes.EqualFold(value, []byte("ON")) {
 		return int64(1), nil
 	}
@@ -49,13 +50,96 @@ func ParseBoolAsInteger(value sql.RawBytes) (interface{}, error) {
 
 // ParseString parses the given sql.RawBytes value into a string.
 // It returns the parsed value and an error if the parsing fails.
-func ParseString(value sql.RawBytes) (interface{}, error) {
+func ParseString(value sql.RawBytes) (any, error) {
 	return string(value), nil
+}
+
+// parseWsrepLatency parses the given sql.RawBytes value into a map
+// containing 5 distinct float64 values. These represent min/avg/max/stdev/sample_size.
+// It returns an error if the value is unrecognized.
+func parseWsrepLatency(value sql.RawBytes) (any, error) {
+	keys := []string{"min", "avg", "max", "stdev", "sample_size"}
+	parts := strings.Split(string(value), "/")
+	if len(parts) != len(keys) {
+		return nil, fmt.Errorf("unsupported amount of values in wsrep_evs_repl_latency, got %d expected %d", len(parts), len(keys))
+	}
+
+	result := make(map[string]any, len(keys))
+
+	for i, key := range keys {
+		val, err := strconv.ParseFloat(parts[i], 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse %s value: %w", key, err)
+		}
+		result[key] = val
+	}
+
+	return result, nil
+}
+
+// ParseWsrepProviderOptions parses the given sql.RawBytes value into a map
+// containing all wsrep Provider options settings.
+func parseWsrepProviderOptions(value sql.RawBytes) (any, error) {
+	parts := strings.Split(strings.TrimSpace(string(value)), ";")
+	result := make(map[string]any)
+	for _, setting := range parts {
+		key, data, found := strings.Cut(setting, "=")
+
+		// empty string at the end of the field, skip
+		if len(setting) != 0 && !found {
+			return nil, fmt.Errorf("invalid key-value pair for %q", setting)
+		}
+
+		key = strings.TrimSpace(key)
+		data = strings.TrimSpace(data)
+		if len(data) == 0 {
+			continue // empty value, no point in continuing
+		}
+
+		// Only process gcache.size for now
+		if key != "gcache.size" {
+			continue
+		}
+		key = strings.Replace(key, ".", "_", -1)
+
+		// Extract the size suffix for values like 128M
+		suffix := data[len(data)-1:]
+		value := data[:len(data)-1]
+
+		// Determine the scaling factor from the suffix
+		var factor uint64
+		switch strings.ToUpper(suffix) {
+		case "K":
+			factor = 1024
+		case "M":
+			factor = 1024 * 1024
+		case "G":
+			factor = 1024 * 1024 * 1024
+		case "T":
+			factor = 1024 * 1024 * 1024 * 1024
+		case "P":
+			factor = 1024 * 1024 * 1024 * 1024 * 1024
+		case "E":
+			factor = 1024 * 1024 * 1024 * 1024 * 1024 * 1024
+		default:
+			// We got no known unit so parse the whole data as value
+			value = data
+			factor = 1
+		}
+
+		// Compute the actual value
+		v, err := strconv.ParseUint(value, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse value %q: %w", data, err)
+		}
+		result[key] = v * factor
+	}
+	return result, nil
 }
 
 // ParseGTIDMode parses the given sql.RawBytes value into an int64
 // representing the GTID mode. It returns an error if the value is unrecognized.
-func ParseGTIDMode(value sql.RawBytes) (interface{}, error) {
+func ParseGTIDMode(value sql.RawBytes) (any, error) {
 	// https://dev.mysql.com/doc/refman/8.0/en/replication-mode-change-online-concepts.html
 	v := string(value)
 	switch v {
@@ -74,7 +158,7 @@ func ParseGTIDMode(value sql.RawBytes) (interface{}, error) {
 
 // ParseValue attempts to parse the given sql.RawBytes value into an appropriate type.
 // It returns the parsed value and an error if the parsing fails.
-func ParseValue(value sql.RawBytes) (interface{}, error) {
+func ParseValue(value sql.RawBytes) (any, error) {
 	if bytes.EqualFold(value, []byte("YES")) || bytes.Equal(value, []byte("ON")) {
 		return int64(1), nil
 	}
@@ -116,6 +200,7 @@ var globalStatusConversions = map[string]conversionFunc{
 	"wsrep_commit_oooe":          ParseFloat,
 	"wsrep_commit_oool":          ParseFloat,
 	"wsrep_commit_window":        ParseFloat,
+	"wsrep_evs_repl_latency":     parseWsrepLatency,
 	"wsrep_flow_control_paused":  ParseFloat,
 	"wsrep_local_index":          ParseUint,
 	"wsrep_local_recv_queue_avg": ParseFloat,
@@ -147,11 +232,14 @@ var globalVariableConversions = map[string]conversionFunc{
 	// https://dev.mysql.com/doc/refman/5.7/en/replication-options-gtids.html
 	// https://dev.mysql.com/doc/refman/8.0/en/replication-options-gtids.html
 	"gtid_mode": ParseGTIDMode,
+
+	// https://galeracluster.com/documentation/html_docs_proto-12/documentation/mysql-wsrep-options.html#wsrep-provider-options
+	"wsrep_provider_options": parseWsrepProviderOptions,
 }
 
 // ConvertGlobalStatus converts the given key and sql.RawBytes value into an appropriate type based on globalStatusConversions.
 // It returns the converted value and an error if the conversion fails.
-func ConvertGlobalStatus(key string, value sql.RawBytes) (interface{}, error) {
+func ConvertGlobalStatus(key string, value sql.RawBytes) (any, error) {
 	if bytes.Equal(value, []byte("")) {
 		return nil, nil
 	}
@@ -165,7 +253,7 @@ func ConvertGlobalStatus(key string, value sql.RawBytes) (interface{}, error) {
 
 // ConvertGlobalVariables converts the given key and sql.RawBytes value into an appropriate type based on globalVariableConversions.
 // It returns the converted value and an error if the conversion fails.
-func ConvertGlobalVariables(key string, value sql.RawBytes) (interface{}, error) {
+func ConvertGlobalVariables(key string, value sql.RawBytes) (any, error) {
 	if bytes.Equal(value, []byte("")) {
 		return nil, nil
 	}

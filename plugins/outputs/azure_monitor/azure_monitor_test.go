@@ -33,10 +33,10 @@ func TestAggregate(t *testing.T) {
 		{
 			name: "add metric outside window is dropped",
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42,
 					},
 					time.Unix(0, 0),
@@ -49,10 +49,10 @@ func TestAggregate(t *testing.T) {
 		{
 			name: "metric not sent until period expires",
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42,
 					},
 					time.Unix(0, 0),
@@ -65,12 +65,12 @@ func TestAggregate(t *testing.T) {
 			name:      "add strings as dimensions",
 			stringdim: true,
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{
 						"host": "localhost",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value":   42,
 						"message": "howdy",
 					},
@@ -80,13 +80,13 @@ func TestAggregate(t *testing.T) {
 			addTime:  time.Unix(0, 0),
 			pushTime: time.Unix(3600, 0),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu-value",
 					map[string]string{
 						"host":    "localhost",
 						"message": "howdy",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"min":   42.0,
 						"max":   42.0,
 						"sum":   42.0,
@@ -99,10 +99,10 @@ func TestAggregate(t *testing.T) {
 		{
 			name: "add metric to cache and push",
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42,
 					},
 					time.Unix(0, 0),
@@ -111,10 +111,10 @@ func TestAggregate(t *testing.T) {
 			addTime:  time.Unix(0, 0),
 			pushTime: time.Unix(3600, 0),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu-value",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"min":   42.0,
 						"max":   42.0,
 						"sum":   42.0,
@@ -127,26 +127,26 @@ func TestAggregate(t *testing.T) {
 		{
 			name: "added metric are aggregated",
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42,
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 84,
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 2,
 					},
 					time.Unix(0, 0),
@@ -155,10 +155,10 @@ func TestAggregate(t *testing.T) {
 			addTime:  time.Unix(0, 0),
 			pushTime: time.Unix(3600, 0),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu-value",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"min":   2.0,
 						"max":   84.0,
 						"sum":   128.0,
@@ -227,10 +227,10 @@ func TestWrite(t *testing.T) {
 		{
 			name: "if not an azure metric nothing is sent",
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"value": 42,
 					},
 					time.Unix(0, 0),
@@ -241,10 +241,10 @@ func TestWrite(t *testing.T) {
 		{
 			name: "single azure metric",
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu-value",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"min":   float64(42),
 						"max":   float64(42),
 						"sum":   float64(42),
@@ -259,10 +259,10 @@ func TestWrite(t *testing.T) {
 		{
 			name: "multiple azure metric",
 			metrics: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"cpu-value",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"min":   float64(42),
 						"max":   float64(42),
 						"sum":   float64(42),
@@ -270,10 +270,10 @@ func TestWrite(t *testing.T) {
 					},
 					time.Unix(0, 0),
 				),
-				testutil.MustMetric(
+				metric.New(
 					"cpu-value",
 					map[string]string{},
-					map[string]interface{}{
+					map[string]any{
 						"min":   float64(42),
 						"max":   float64(42),
 						"sum":   float64(42),
@@ -362,7 +362,7 @@ func TestWriteTimelimits(t *testing.T) {
 			map[string]string{
 				"status": "too old",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"min":   float64(42),
 				"max":   float64(42),
 				"sum":   float64(42),
@@ -375,7 +375,7 @@ func TestWriteTimelimits(t *testing.T) {
 			map[string]string{
 				"status": "30 min in the past",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"min":   float64(42),
 				"max":   float64(42),
 				"sum":   float64(42),
@@ -388,7 +388,7 @@ func TestWriteTimelimits(t *testing.T) {
 			map[string]string{
 				"status": "20 min in the past",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"min":   float64(42),
 				"max":   float64(42),
 				"sum":   float64(42),
@@ -401,7 +401,7 @@ func TestWriteTimelimits(t *testing.T) {
 			map[string]string{
 				"status": "10 min in the past",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"min":   float64(42),
 				"max":   float64(42),
 				"sum":   float64(42),
@@ -414,7 +414,7 @@ func TestWriteTimelimits(t *testing.T) {
 			map[string]string{
 				"status": "now",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"min":   float64(42),
 				"max":   float64(42),
 				"sum":   float64(42),
@@ -427,7 +427,7 @@ func TestWriteTimelimits(t *testing.T) {
 			map[string]string{
 				"status": "1 min in the future",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"min":   float64(42),
 				"max":   float64(42),
 				"sum":   float64(42),
@@ -440,7 +440,7 @@ func TestWriteTimelimits(t *testing.T) {
 			map[string]string{
 				"status": "2 min in the future",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"min":   float64(42),
 				"max":   float64(42),
 				"sum":   float64(42),
@@ -453,7 +453,7 @@ func TestWriteTimelimits(t *testing.T) {
 			map[string]string{
 				"status": "4 min in the future",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"min":   float64(42),
 				"max":   float64(42),
 				"sum":   float64(42),
@@ -466,7 +466,7 @@ func TestWriteTimelimits(t *testing.T) {
 			map[string]string{
 				"status": "5 min in the future",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"min":   float64(42),
 				"max":   float64(42),
 				"sum":   float64(42),
@@ -479,7 +479,7 @@ func TestWriteTimelimits(t *testing.T) {
 			map[string]string{
 				"status": "too far in the future",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"min":   float64(42),
 				"max":   float64(42),
 				"sum":   float64(42),
@@ -561,7 +561,7 @@ func TestWriteTimelimits(t *testing.T) {
 				status := http.StatusOK
 				scanner := bufio.NewScanner(reader)
 				for scanner.Scan() {
-					var data map[string]interface{}
+					var data map[string]any
 					if err := json.Unmarshal(scanner.Bytes(), &data); err != nil {
 						w.WriteHeader(http.StatusInternalServerError)
 						t.Logf("decoding JSON failed: %v", err)

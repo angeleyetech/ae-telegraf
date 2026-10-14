@@ -12,8 +12,8 @@ import (
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
-	"github.com/influxdata/telegraf/internal/snmp"
 	"github.com/influxdata/telegraf/metric"
+	"github.com/influxdata/telegraf/plugins/common/snmp"
 	"github.com/influxdata/telegraf/plugins/processors"
 	"github.com/influxdata/telegraf/testutil"
 )
@@ -53,6 +53,10 @@ func (*testSNMPConnection) Reconnect() error {
 	return errors.New("not implemented")
 }
 
+func (*testSNMPConnection) Close() error {
+	return errors.New("not implemented")
+}
+
 func TestRegistry(t *testing.T) {
 	require.Contains(t, processors.Processors, "snmp_lookup")
 	require.IsType(t, &SNMPLookup{}, processors.Processors["snmp_lookup"]())
@@ -88,9 +92,7 @@ func TestInit(t *testing.T) {
 		{
 			name: "wrong SNMP client config",
 			plugin: &SNMPLookup{
-				ClientConfig: snmp.ClientConfig{
-					Version: 99,
-				},
+				Version: 99,
 			},
 			expected: "parsing SNMP client config: invalid version",
 		},
@@ -137,26 +139,26 @@ func TestGetConnection(t *testing.T) {
 	}{
 		{
 			name: "agent error",
-			input: testutil.MustMetric(
+			input: metric.New(
 				"test",
 				map[string]string{
 					"source": "test://127.0.0.1",
 				},
-				map[string]interface{}{},
+				map[string]any{},
 				time.Unix(0, 0),
 			),
 			expected: "parsing agent tag: unsupported scheme: test",
 		},
 		{
 			name: "v2 trap",
-			input: testutil.MustMetric(
+			input: metric.New(
 				"test",
 				map[string]string{
 					"source":    "127.0.0.1",
 					"version":   "2c",
 					"community": "public",
 				},
-				map[string]interface{}{},
+				map[string]any{},
 				time.Unix(0, 0),
 			),
 		},
@@ -268,68 +270,68 @@ func TestAdd(t *testing.T) {
 		},
 		{
 			name: "no index tag",
-			input: testutil.MustMetric(
+			input: metric.New(
 				"test",
 				map[string]string{
 					"source": "127.0.0.1",
 				},
-				map[string]interface{}{"value": 42},
+				map[string]any{"value": 42},
 				time.Unix(0, 0),
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"test",
 					map[string]string{
 						"source": "127.0.0.1",
 					},
-					map[string]interface{}{"value": 42},
+					map[string]any{"value": 42},
 					time.Unix(0, 0),
 				),
 			},
 		},
 		{
 			name: "cached",
-			input: testutil.MustMetric(
+			input: metric.New(
 				"test",
 				map[string]string{
 					"source": "127.0.0.1",
 					"index":  "123",
 				},
-				map[string]interface{}{"value": 42},
+				map[string]any{"value": 42},
 				time.Unix(0, 0),
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"test",
 					map[string]string{
 						"source": "127.0.0.1",
 						"index":  "123",
 						"ifName": "eth123",
 					},
-					map[string]interface{}{"value": 42},
+					map[string]any{"value": 42},
 					time.Unix(0, 0),
 				),
 			},
 		},
 		{
 			name: "non-existing index",
-			input: testutil.MustMetric(
+			input: metric.New(
 				"test",
 				map[string]string{
 					"source": "127.0.0.1",
 					"index":  "999",
 				},
-				map[string]interface{}{"value": 42},
+				map[string]any{"value": 42},
 				time.Unix(0, 0),
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric(
+				metric.New(
 					"test",
 					map[string]string{
 						"source": "127.0.0.1",
 						"index":  "999",
 					},
-					map[string]interface{}{"value": 42},
+					map[string]any{"value": 42},
 					time.Unix(0, 0),
 				),
 			},
@@ -397,10 +399,10 @@ func TestExpiry(t *testing.T) {
 			".1.3.6.1.2.1.31.1.1.1.1.1": "eth1",
 		},
 	}
-	m := testutil.MustMetric(
+	m := metric.New(
 		"test",
 		map[string]string{"source": "127.0.0.1"},
-		map[string]interface{}{"value": 1.0},
+		map[string]any{"value": 1.0},
 		time.Unix(0, 0),
 	)
 
@@ -430,7 +432,7 @@ func TestExpiry(t *testing.T) {
 				"index":  "0",
 				"ifName": "eth0",
 			},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 		metric.New(
@@ -440,7 +442,7 @@ func TestExpiry(t *testing.T) {
 				"index":  "1",
 				"ifName": "eth1",
 			},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 		metric.New(
@@ -449,7 +451,7 @@ func TestExpiry(t *testing.T) {
 				"source": "127.0.0.1",
 				"index":  "123",
 			},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 	}
@@ -476,7 +478,7 @@ func TestExpiry(t *testing.T) {
 				"index":  "0",
 				"ifName": "eth0",
 			},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 	}
@@ -530,19 +532,19 @@ func TestOrdered(t *testing.T) {
 		metric.New(
 			"test1",
 			map[string]string{"source": "b.yourcompany.com"},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 		metric.New(
 			"test2",
 			map[string]string{"source": "a.mycompany.com"},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 		metric.New(
 			"test3",
 			map[string]string{"source": "127.0.0.1"},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 	}
@@ -569,7 +571,7 @@ func TestOrdered(t *testing.T) {
 				"index":  "0",
 				"ifName": "eth0",
 			},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 		metric.New(
@@ -579,7 +581,7 @@ func TestOrdered(t *testing.T) {
 				"index":  "1",
 				"ifName": "eth1",
 			},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 		metric.New(
@@ -589,7 +591,7 @@ func TestOrdered(t *testing.T) {
 				"index":  "0",
 				"ifName": "eth0",
 			},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 		metric.New(
@@ -599,7 +601,7 @@ func TestOrdered(t *testing.T) {
 				"index":  "1",
 				"ifName": "eth1",
 			},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 		metric.New(
@@ -609,7 +611,7 @@ func TestOrdered(t *testing.T) {
 				"index":  "0",
 				"ifName": "eth0",
 			},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 		metric.New(
@@ -619,7 +621,7 @@ func TestOrdered(t *testing.T) {
 				"index":  "1",
 				"ifName": "eth1",
 			},
-			map[string]interface{}{"value": 1.0},
+			map[string]any{"value": 1.0},
 			time.Unix(0, 0),
 		),
 	}
@@ -662,13 +664,13 @@ func TestNoReenqueAfterStop(t *testing.T) {
 
 	// Send two metrics for the
 	for range 2 {
-		m := testutil.MustMetric(
+		m := metric.New(
 			"test",
 			map[string]string{
 				"source": "127.0.0.1",
 				"index":  "0",
 			},
-			map[string]interface{}{"value": 1},
+			map[string]any{"value": 1},
 			time.Now(),
 		)
 		require.NoError(t, plugin.Add(m, &acc))
@@ -741,13 +743,13 @@ func TestStopWithTaskInWorkerPool(t *testing.T) {
 	var acc testutil.Accumulator
 	require.NoError(t, plugin.Start(&acc))
 
-	m := testutil.MustMetric(
+	m := metric.New(
 		"test",
 		map[string]string{
 			"source": "127.0.0.1",
 			"index":  "0",
 		},
-		map[string]interface{}{"value": 1},
+		map[string]any{"value": 1},
 		time.Now(),
 	)
 
@@ -833,13 +835,13 @@ func TestStopWithTaskInWorkerPoolWithGoTimeout(t *testing.T) {
 	var acc testutil.Accumulator
 	require.NoError(t, plugin.Start(&acc))
 
-	m := testutil.MustMetric(
+	m := metric.New(
 		"test",
 		map[string]string{
 			"source": "127.0.0.1",
 			"index":  "0",
 		},
-		map[string]interface{}{"value": 1},
+		map[string]any{"value": 1},
 		time.Now(),
 	)
 	require.NoError(t, plugin.Add(m, &acc))

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-kusto-go/kusto/ingest"
+	"github.com/Azure/azure-kusto-go/azkustoingest"
 
 	"github.com/influxdata/telegraf"
 	"github.com/influxdata/telegraf/config"
@@ -30,8 +30,7 @@ func (e *eventhouse) init() error {
 
 	// Parse the connection string by splitting it into key-value pairs
 	// and extract the extra keys used for plugin configuration
-	pairs := strings.Split(e.connectionString, ";")
-	for _, pair := range pairs {
+	for pair := range strings.SplitSeq(e.connectionString, ";") {
 		// Skip empty pairs
 		if strings.TrimSpace(pair) == "" {
 			continue
@@ -124,7 +123,7 @@ func (e *eventhouse) writeTablePerMetric(metrics []telegraf.Metric) error {
 	}
 
 	// Push the metrics for each table
-	format := ingest.FileFormat(ingest.JSON)
+	format := azkustoingest.FileFormat(azkustoingest.JSON)
 	for tableName, tableMetrics := range tableMetricGroups {
 		if err := e.client.PushMetrics(format, tableName, tableMetrics); err != nil {
 			return err
@@ -146,7 +145,7 @@ func (e *eventhouse) writeSingleTable(metrics []telegraf.Metric) error {
 	}
 
 	// push metrics to a single table
-	format := ingest.FileFormat(ingest.JSON)
+	format := azkustoingest.FileFormat(azkustoingest.JSON)
 	err := e.client.PushMetrics(format, e.TableName, metricsArray)
 	return err
 }

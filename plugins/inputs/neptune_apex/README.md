@@ -12,10 +12,9 @@ probes.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -78,21 +77,21 @@ considered a convenience rather than authoritative.
 - neptune_apex (All metrics have this measurement name)
   - tags:
     - host        (mandatory, string) - host on which telegraf runs
-    - source      (mandatory, string) - contains the hostname of the apex device
-                                        This can be used to differentiate between
-                                        different units. By using the source
-                                        instead of the serial number, replacements
-                                        units won't disturb graphs.
+    - source      (mandatory, string) - hostname of the apex device to
+                                        differentiate between units. By using
+                                        the source instead of the serial number,
+                                        replacements units won't disturb graphs.
     - type        (mandatory, string) - maps to the different data types
                                         Values can be "controller" (The Apex
                                         controller itself), "probe" for the
-                                        different input probes, or "output" for any
-                                        physical or virtual outputs. The Watt and
+                                        different input probes, or "output" for
+                                        any physical or virtual outputs. Watt and
                                         Amp probes attached to the physical 120V
-                                        outlets are aggregated under the output type.
+                                        outlets are aggregated under the output
+                                        type.
     - hardware    (mandatory, string) - controller hardware version
     - software    (mandatory, string) - software version
-    - probe_type  (optional, string)  - contains the probe type as reported by Apex
+    - probe_type  (optional, string)  - contains the probe type reported by Apex
     - name        (optional, string)  - contains the name of the probe or output
     - output_id   (optional, string)  - represents the internal unique output ID
                                         This is different from the device_id.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/awnumar/memguard"
+	"github.com/fatih/color"
 	"github.com/urfave/cli/v2"
 
 	"github.com/influxdata/telegraf/config"
@@ -99,6 +101,7 @@ func deleteEmpty(s []string) []string {
 // runApp defines all the subcommands and flags for Telegraf
 // this abstraction is used for testing, so outputBuffer and args can be changed
 func runApp(args []string, outputBuffer io.Writer, pprof Server, c TelegrafConfig, m App) error {
+	//nolint:prealloc // False positive as this has a fixed, known-in-advance size
 	configHandlingFlags := []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:  "config",
@@ -131,7 +134,15 @@ func runApp(args []string, outputBuffer io.Writer, pprof Server, c TelegrafConfi
 		},
 		&cli.StringFlag{
 			Name:  "secretstore-filter",
-			Usage: "filter the secret-stores to enable, separator is ':'",
+			Usage: "filter the secret stores to enable, separator is ':'",
+		},
+		&cli.BoolFlag{
+			Name:  "strict-env-handling",
+			Usage: "enforces strict and secure handling of environment variables; will not work with non-string settings",
+		},
+		&cli.BoolFlag{
+			Name:  "non-strict-env-handling",
+			Usage: "allow unsafe non-strict handling of environment variables to replace non-string settings",
 		},
 	}
 
@@ -149,6 +160,7 @@ func runApp(args []string, outputBuffer io.Writer, pprof Server, c TelegrafConfi
 		// Load external plugins, if requested.
 		if cCtx.String("plugin-directory") != "" {
 			log.Printf("I! Loading external plugins from: %s", cCtx.String("plugin-directory"))
+			//nolint:staticcheck // False-positive as this can return nil if plugins are enabled
 			if err := goplugin.LoadExternalPlugins(cCtx.String("plugin-directory")); err != nil {
 				return err
 			}
@@ -221,6 +233,16 @@ func runApp(args []string, outputBuffer io.Writer, pprof Server, c TelegrafConfi
 			pprof.Start(cCtx.String("pprof-addr"))
 		}
 
+		if cCtx.Bool("strict-env-handling") && cCtx.Bool("non-strict-env-handling") {
+			return errors.New("flags --strict-env-handling and --non-strict-env-handling cannot be used together")
+		}
+		if !cCtx.Bool("strict-env-handling") && !cCtx.Bool("non-strict-env-handling") {
+			msg := "Strict environment variable handling is the new default starting with v1.38.0! " +
+				"If your configuration does not work with strict handling please explicitly add " +
+				"the --non-strict-env-handling flag to switch to the previous behavior!"
+			log.Println("W! " + color.YellowString(msg))
+		}
+
 		if err := config.SetPluginLabelSelections(cCtx.StringSlice("select")); err != nil {
 			return err
 		}
@@ -240,6 +262,7 @@ func runApp(args []string, outputBuffer io.Writer, pprof Server, c TelegrafConfi
 			plugindDir:              cCtx.String("plugin-directory"),
 			password:                cCtx.String("password"),
 			oldEnvBehavior:          cCtx.Bool("old-env-behavior"),
+			nonStrictEnvVars:        cCtx.Bool("non-strict-env-handling"),
 			printPluginConfigSource: cCtx.Bool("print-plugin-config-source"),
 			test:                    cCtx.Bool("test"),
 			debug:                   cCtx.Bool("debug"),
@@ -312,7 +335,7 @@ func runApp(args []string, outputBuffer io.Writer, pprof Server, c TelegrafConfi
 				},
 				&cli.StringFlag{
 					Name:  "password",
-					Usage: "password to unlock secret-stores",
+					Usage: "password to unlock secret stores",
 				},
 				//
 				// Bool flags

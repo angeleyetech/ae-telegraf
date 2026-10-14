@@ -22,18 +22,17 @@ normal plugins:
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
-## Secret-store support
+## Secret store support
 
-This plugin supports secrets from secret-stores for the `username` and
+This plugin supports secrets from secret stores for the `username` and
 `password` option.
-See the [secret-store documentation][SECRETSTORE] for more details on how
+See the [secret store documentation][SECRETSTORE] for more details on how
 to use them.
 
 [SECRETSTORE]: ../../../docs/CONFIGURATION.md#secret-store-secrets
@@ -50,7 +49,7 @@ to use them.
   # endpoint = "opc.tcp://localhost:4840"
   #
   ## Maximum time allowed to establish a connect to the endpoint.
-  # connect_timeout = "10s"
+  # connect_timeout = "5s"
   #
   ## Behavior when we fail to connect to the endpoint on initialization. Valid options are:
   ##     "error": throw an error and exits Telegraf
@@ -59,10 +58,14 @@ to use them.
   # connect_fail_behavior = "error"
   #
   ## Maximum time allowed for a request over the established connection.
-  # request_timeout = "5s"
+  # request_timeout = "10s"
   #
   # Maximum time that a session shall remain open without activity.
   # session_timeout = "20m"
+  #
+  ## Preferred locales for the OPC UA session, ordered by priority.
+  ## The server returns LocalizedText values in the first supported locale.
+  # locales = []
   #
   ## The interval at which the server should at least update its monitored items.
   ## Please note that the OPC UA server might reject the specified interval if it cannot meet the required update rate.
@@ -123,11 +126,15 @@ to use them.
   #
   ## Node ID configuration
   ## name              - field name to use in the output
+  ## id                - OPC UA node ID string (e.g., "ns=0;i=2262" or "nsu=http://...;s=Name")
   ## namespace         - OPC UA namespace of the node (integer value 0 thru 3)
+  ## namespace_uri     - OPC UA namespace URI (alternative to namespace for stable references)
   ## identifier_type   - OPC UA ID type (s=string, i=numeric, g=guid, b=opaque)
   ## identifier        - OPC UA ID (tag as shown in opcua browser)
   ## default_tags      - extra tags to be added to the output metric (optional)
   ## monitoring_params - additional settings for the monitored node (optional)
+  ##
+  ## Use EITHER 'id' OR the combination of 'namespace/namespace_uri' + 'identifier_type' + 'identifier'
   ##
   ## Monitoring parameters
   ## sampling_interval  - interval at which the server should check for data
@@ -151,6 +158,7 @@ to use them.
   ##                  "StatusValueTimestamp": report notifications if either status,
   ##                                          value or timestamp changes
   ## deadband_type  - type of the deadband filter to be applied, possible values:
+  ##                  "None": no deadband filter is applied
   ##                  "Absolute": absolute change in a data value to report a notification
   ##                  "Percent": works only with nodes that have an EURange property set
   ##                             and is defined as: send notification if
@@ -161,13 +169,25 @@ to use them.
   ##
   ## Use either the inline notation or the bracketed notation, not both.
   #
-  ## Inline notation (default_tags and monitoring_params not supported yet)
+  ## Inline notation using id string (recommended for simplicity)
+  # nodes = [
+  #   {name="ProductUri", id="ns=0;i=2262"},
+  #   {name="ServerState", id="ns=0;i=2259"}
+  # ]
+  #
+  ## Inline notation using individual fields (default_tags and monitoring_params not supported yet)
   # nodes = [
   #   {name="node1", namespace="", identifier_type="", identifier=""},
   #   {name="node2", namespace="", identifier_type="", identifier=""}
   # ]
   #
-  ## Bracketed notation
+  ## Bracketed notation using id string
+  # [[inputs.opcua_listener.nodes]]
+  #   name = "ProductUri"
+  #   id = "ns=0;i=2262"
+  #   default_tags = { tag1 = "value1", tag2 = "value2" }
+
+  ## Bracketed notation using individual fields
   # [[inputs.opcua_listener.nodes]]
   #   name = "node1"
   #   namespace = ""
@@ -191,6 +211,12 @@ to use them.
   #       deadband_type = "Absolute"
   #       deadband_value = 0.0
   #
+  # [[inputs.opcua_listener.nodes]]
+  #   name = "node3"
+  #   namespace_uri = "http://opcfoundation.org/UA/"
+  #   identifier_type = ""
+  #   identifier = ""
+  #
   ## Node Group
   ## Sets defaults so they aren't required in every node.
   ## Default values can be set for:
@@ -210,8 +236,12 @@ to use them.
   ## namespace, this is used.
   # namespace =
   #
+  ## Group default namespace URI. Alternative to namespace for stable references.
+  ## If a node in the group doesn't set its namespace_uri, this is used.
+  # namespace_uri =
+  #
   ## Group default identifier type. If a node in the group doesn't set its
-  ## namespace, this is used.
+  ## identifier_type, this is used.
   # identifier_type =
   #
   ## Default tags that are applied to every node in this group. Can be
@@ -258,31 +288,76 @@ to use them.
   #
 
   ## Multiple event groups are allowed.
+  ## Event nodes support both 'id' string format and individual fields.
   # [[inputs.opcua_listener.events]]
   #   ## Polling interval for data collection
   #   # sampling_interval = "10s"
   #   ## Size of the notification queue
   #   # queue_size = 10
-  #   ## Node parameter defaults for node definitions below
+  #   ## Node parameter defaults for node definitions below (used when id is not specified)
   #   # namespace = ""
   #   # identifier_type = ""
   #   ## Specifies OPCUA Event sources to filter on
   #   # source_names = ["SourceName1", "SourceName2"]
-  #   ## Fields to capture from event notifications
+  #   ## Fields to capture from event notifications.
+  #   ## Fields support namespace-qualified names using "ns:name" format
+  #   ## (e.g. "2:TEXT01") and nested browse paths using "/" as separator
+  #   ## (e.g. "AckedState/Id" or "2:AckedState/0:Id").
   #   fields = ["Severity", "Message", "Time"]
   #
   #   ## Type or level of events to capture from the monitored nodes.
+  #   ## Use 'id' string OR individual fields (namespace/identifier_type/identifier)
   #   [inputs.opcua_listener.events.event_type_node]
-  #     namespace = ""
-  #     identifier_type = ""
-  #     identifier = ""
+  #     id = "ns=0;i=2041"
+  #     # Or use individual fields:
+  #     # namespace = ""
+  #     # identifier_type = ""
+  #     # identifier = ""
   #
   #   ## Nodes to monitor for event notifications associated with the defined
-  #   ## event type
+  #   ## event type. Use 'id' string OR individual fields.
   #   [[inputs.opcua_listener.events.node_ids]]
-  #     namespace = ""
-  #     identifier_type = ""
-  #     identifier = ""
+  #     id = "ns=2;s=EventSource1"
+  #     # Or use individual fields:
+  #     # namespace = ""
+  #     # identifier_type = ""
+  #     # identifier = ""
+
+  ## Browse-based discovery
+  ## Walks the server's address space using the Browse service and matches
+  ## browse paths against glob patterns to discover Variable nodes
+  ## automatically. Backwards compatible: when no paths are configured the
+  ## existing nodes/group configuration is used unchanged.
+  # [inputs.opcua_listener.browse]
+  #   ## Starting node for the browse walk. Defaults to the standard Objects
+  #   ## folder when empty.
+  #   # root = "ns=0;i=85"
+  #
+  #   ## Maximum tree depth descended below the root. 0 means unlimited.
+  #   # depth = 0
+  #
+  #   ## Maximum number of discovered nodes. 0 means unlimited.
+  #   # max_nodes = 0
+  #
+  #   ## Number of nodes browsed per Browse request. 0 falls back to the
+  #   ## built-in default. Lower values reduce per-RPC payload at the cost
+  #   ## of more round trips; raise for fast servers and large trees.
+  #   # batch_size = 0
+  #
+  #   ## Pattern-based discovery rules. Each path defines one glob pattern
+  #   ## over browse-path segments. Pattern syntax:
+  #   ##   *       any single segment (or any chars within a segment)
+  #   ##   **      zero or more segments (recursive descent)
+  #   ##   ?       single character within a segment
+  #   ##   [abc]   character class within a segment
+  #   ##   {a,b}   alternation: any of the comma-separated alternatives
+  #   ##   \       escapes the next character
+  #   ## Multiple paths may be configured; a node matching multiple patterns
+  #   ## appears in each matching group.
+  #   # [[inputs.opcua_listener.browse.paths]]
+  #   #   pattern = "Server/**"
+  #   #   name = "server_vars"
+  #   #   default_tags = { source = "browse" }
 
   ## Enable workarounds required by some devices to work correctly
   # [inputs.opcua_listener.workarounds]
@@ -290,6 +365,12 @@ to use them.
   #  # additional_valid_status_codes = ["0xC0"]
   #  ## Use unregistered reads instead of registered reads
   #  # use_unregistered_reads = false
+  #  ## Maximum number of monitored items registered per request when setting up the
+  #  ## subscription. With a large number of nodes the registration request can exceed
+  #  ## the server's maximum message size and cause the subscription to fail (e.g.
+  #  ## "BadTcpMessageTooLarge"). Splitting the registration into smaller batches avoids
+  #  ## this. 0 (the default) registers all items in a single request.
+  #  # monitored_items_batch_size = 0
 ```
 
 ### Node Configuration
@@ -301,12 +382,28 @@ An OPC UA node ID may resemble: "ns=3;s=Temperature". In this example:
   `identifier` value is 'Temperature'
 - This example temperature node has a value of 79.0
 
-To gather data from this node enter the following line into the 'nodes'
-property above:
+#### Using `id` String (Recommended)
+
+You can specify nodes using the standard OPC UA node ID string format directly:
+
+```text
+{name="temp", id="ns=3;s=Temperature"},
+```
+
+This is simpler and matches the format shown in OPC UA browsers.
+
+#### Using Individual Fields
+
+Alternatively, you can specify each component separately:
 
 ```text
 {name="temp", namespace="3", identifier_type="s", identifier="Temperature"},
 ```
+
+> [!NOTE]
+> Use either `id` OR the combination of
+> `namespace`/`namespace_uri` + `identifier_type` + `identifier`.
+> Do not mix both formats for the same node.
 
 This node configuration produces a metric like this:
 
@@ -328,13 +425,60 @@ using indexed keys. For example:
 opcua,id=ns\=3;s\=Temperature temp[0]=79.0,temp[1]=38.9,Quality="OK (0x0)",DataType="Float" 1597820490000000000
 ```
 
+#### Namespace Index vs Namespace URI
+
+OPC UA supports two ways to specify namespaces:
+
+1. **Namespace Index** (`namespace`): An integer (0-3 or higher) that references
+   a position in the server's namespace array. This is simpler but can change if
+   the server is restarted or reconfigured.
+
+2. **Namespace URI** (`namespace_uri`): A string URI that uniquely identifies
+   the namespace. This is more stable across server restarts but requires the
+   plugin to fetch the namespace array from the server to resolve the URI to an
+   index.
+
+**When to use namespace index:**
+
+- For standard OPC UA namespaces (0 = OPC UA, 1 = Local Server)
+- When namespace stability is not a concern
+- For simpler configuration
+
+**When to use namespace URI:**
+
+- When you need consistent node references across server restarts
+- For production environments where namespace indices might change
+- When working with vendor-specific namespaces
+
+**Example using namespace URI:**
+
+```toml
+[[inputs.opcua_listener.nodes]]
+  name = "ServerStatus"
+  namespace_uri = "http://opcfoundation.org/UA/"
+  identifier_type = "i"
+  identifier = "2256"
+```
+
+This produces the same node ID internally as:
+
+```toml
+[[inputs.opcua_listener.nodes]]
+  name = "ServerStatus"
+  namespace = "0"
+  identifier_type = "i"
+  identifier = "2256"
+```
+
+Note: You must specify either `namespace` or `namespace_uri`, not both.
+
 #### Group Configuration
 
-Groups can set default values for the namespace, identifier type, tags
-settings and sampling interval.  The default values apply to all the
-nodes in the group.  If a default is set, a node may omit the setting
-altogether. This simplifies node configuration, especially when many
-nodes share the same namespace or identifier type.
+Groups can set default values for the namespace (index or URI), identifier type,
+tags settings and sampling interval. The default values apply to all the nodes
+in the group. If a default is set, a node may omit the setting altogether. This
+simplifies node configuration, especially when many nodes share the same
+namespace or identifier type.
 
 The output metric will include tags set in the group and the node.  If
 a tag with the same name is set in both places, the tag value from the
@@ -404,43 +548,102 @@ and all paramters must be set in this section.
 This example group configuration shows how to use group settings:
 
 ```toml
-# Group 1
-[[inputs.opcua_listener.events]]
-   sampling_interval = "10s"
-   queue_size = "100"
-   source_names = ["SourceName1", "SourceName2"]
-   fields = ["Severity", "Message", "Time"]
+  # Group 1
+  [[inputs.opcua_listener.events]]
+    sampling_interval = "10s"
+    queue_size = 100
+    source_names = ["SourceName1", "SourceName2"]
+    fields = ["Severity", "Message", "Time"]
 
-   [inputs.opcua_listener.events.event_type_node]
-     namespace = "1"
-     identifier_type = "i"
-     identifier = "1234"
+    [[inputs.opcua_listener.events.node_ids]]
+      namespace = "2"
+      identifier_type = "i"
+      identifier = "2345"
 
-   [[inputs.opcua_listener.events.node_ids]]
-     namespace = "2"
-     identifier_type = "i"
-     identifier = "2345"
+    [inputs.opcua_listener.events.event_type_node]
+      namespace = "1"
+      identifier_type = "i"
+      identifier = "1234"
 
-# Group 2
-[[inputs.opcua_listener.events]]
-   sampling_interval = "10s"
-   queue_size = "100"
-   namespace = "3"
-   identifier_type = "s"
-   source_names = ["SourceName1", "SourceName2"]
-   fields = ["Severity", "Message", "Time"]
-
-   [inputs.opcua_listener.events.event_type_node]
-     namespace = "1"
-     identifier_type = "i"
-     identifier = "5678"
+  # Group 2
+  [[inputs.opcua_listener.events]]
+    sampling_interval = "10s"
+    queue_size = 100
+    namespace = "3"
+    identifier_type = "s"
+    source_names = ["SourceName1", "SourceName2"]
+    fields = ["Severity", "Message", "Time"]
 
     node_ids = [
-      {identifier="Sensor1"}, // default values will be used for namespace and identifier_type
-      {namespace="2", identifier="TemperatureSensor"}, // default values will be used for identifier_type
-      {namespace="5", identifier_type="i", identifier="2002"} // no default values will be used
+      { identifier="Sensor1" }, # default values will be used for namespace and identifier_type
+      { namespace="2", identifier="TemperatureSensor" }, # default values will be used for identifier_type
+      { namespace="5", identifier_type="i", identifier="2002" } # no default values will be used
     ]
+
+    [inputs.opcua_listener.events.event_type_node]
+      namespace = "1"
+      identifier_type = "i"
+      identifier = "5678"
 ```
+
+## Browse-based Discovery
+
+Large deployments often expose thousands of nodes that share a regular
+naming scheme. Instead of enumerating each node, the
+`[inputs.opcua_listener.browse]` section walks the server's address space
+with the Browse service and matches discovered Variable nodes against glob
+patterns over their browse paths. Discovered nodes are folded into the
+existing pipeline, so the configuration stays backwards compatible with any
+explicit `nodes` or `group` entries.
+
+```toml
+[inputs.opcua_listener.browse]
+  # Starting node for the browse walk (default: Objects folder).
+  root = "ns=0;i=85"
+
+  # Optional safety limits.
+  depth = 10
+  max_nodes = 50000
+
+  # Optional per-RPC tuning.
+  batch_size = 50
+
+  [[inputs.opcua_listener.browse.paths]]
+    pattern = "Plant1/*/MV*"
+    name = "motor_valves"
+    default_tags = { plant = "plant1" }
+
+  [[inputs.opcua_listener.browse.paths]]
+    pattern = "**/Temperature"
+    name = "temperatures"
+```
+
+### Pattern Syntax
+
+Patterns are compiled by Telegraf's `filter` package with `/` as the segment
+separator:
+
+| Token   | Meaning                                              |
+|---------|------------------------------------------------------|
+| literal | exact string match for one segment                   |
+| `*`     | any single segment, or any characters in a segment   |
+| `**`    | zero or more segments (recursive descent)            |
+| `?`     | single character within a segment                    |
+| `[abc]` | character class within a segment                     |
+| `{a,b}` | alternation: any of the comma-separated alternatives |
+| `\`     | escapes the next character                           |
+
+A node matched by multiple patterns appears in each matching group;
+duplicate `(metric_name, field_name, tags)` combinations are rejected at
+mapping time.
+
+The `root` option accepts node-ID strings (`ns=N;...`). Path-string form
+and namespace-URI (`nsu=...`) form are not currently supported.
+
+> [!NOTE]
+> Browse runs on every connect, so address-space changes (nodes added or
+> removed, renumbered namespaces) are picked up on reconnect without
+> restarting Telegraf.
 
 ## Metrics
 

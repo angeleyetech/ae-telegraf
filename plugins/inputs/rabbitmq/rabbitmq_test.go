@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -55,11 +56,11 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 
 	// Define test cases
 	expected := []telegraf.Metric{
-		testutil.MustMetric("rabbitmq_overview",
+		metric.New("rabbitmq_overview",
 			map[string]string{
 				"url": ts.URL,
 			},
-			map[string]interface{}{
+			map[string]any{
 				"messages":               int64(50),
 				"messages_ready":         int64(72),
 				"messages_unacked":       int64(94),
@@ -79,7 +80,7 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_queue",
+		metric.New("rabbitmq_queue",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "false",
@@ -88,7 +89,7 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "sorandomsorandom",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"consumers":                 int64(3),
 				"consumer_utilisation":      float64(1.0),
 				"head_message_timestamp":    int64(1446362534),
@@ -117,7 +118,7 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_queue",
+		metric.New("rabbitmq_queue",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "true",
@@ -126,7 +127,7 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "sorandomsorandom",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"consumers":                 int64(2),
 				"consumer_utilisation":      float64(0.8),
 				"head_message_timestamp":    int64(1446366000),
@@ -155,7 +156,7 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_queue",
+		metric.New("rabbitmq_queue",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "true",
@@ -164,7 +165,7 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "sorandomsorandom",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"consumers":                 int64(1),
 				"consumer_utilisation":      float64(0.9),
 				"head_message_timestamp":    int64(1446372000),
@@ -193,7 +194,7 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_queue",
+		metric.New("rabbitmq_queue",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "true",
@@ -202,7 +203,7 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "sorandomsorandom",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"consumers":                 int64(2),
 				"consumer_utilisation":      float64(0.85),
 				"head_message_timestamp":    int64(1446375000),
@@ -231,12 +232,12 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_node",
+		metric.New("rabbitmq_node",
 			map[string]string{
 				"node": "rabbit@vagrant-ubuntu-trusty-64",
 				"url":  ts.URL,
 			},
-			map[string]interface{}{
+			map[string]any{
 				"disk_free":                 int64(3776),
 				"disk_free_limit":           int64(50000000),
 				"disk_free_alarm":           int64(0),
@@ -291,7 +292,7 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_exchange",
+		metric.New("rabbitmq_exchange",
 			map[string]string{
 				"auto_delete": "true",
 				"durable":     "false",
@@ -301,7 +302,7 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "sorandomsorandom",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"messages_publish_in":       int64(3678),
 				"messages_publish_in_rate":  float64(3.2),
 				"messages_publish_out":      int64(3677),
@@ -309,7 +310,7 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_federation",
+		metric.New("rabbitmq_federation",
 			map[string]string{
 				"queue":          "exampleLocalQueue",
 				"type":           "queue",
@@ -318,7 +319,7 @@ func TestRabbitMQGeneratesMetricsSet1(t *testing.T) {
 				"url":            ts.URL,
 				"vhost":          "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"acks_uncommitted":           int64(1),
 				"consumers":                  int64(2),
 				"messages_unacknowledged":    int64(3),
@@ -388,11 +389,11 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 
 	// Define test cases
 	expected := []telegraf.Metric{
-		testutil.MustMetric("rabbitmq_overview",
+		metric.New("rabbitmq_overview",
 			map[string]string{
 				"url": ts.URL,
 			},
-			map[string]interface{}{
+			map[string]any{
 				"messages":               int64(30),
 				"messages_ready":         int64(30),
 				"messages_unacked":       int64(0),
@@ -412,7 +413,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_queue",
+		metric.New("rabbitmq_queue",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "false",
@@ -421,7 +422,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"consumers":                 int64(1),
 				"consumer_utilisation":      float64(1.0),
 				"memory":                    int64(15840),
@@ -449,7 +450,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_queue",
+		metric.New("rabbitmq_queue",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "false",
@@ -458,7 +459,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"consumers":                 int64(1),
 				"consumer_utilisation":      float64(1.0),
 				"memory":                    int64(15600),
@@ -486,7 +487,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_queue",
+		metric.New("rabbitmq_queue",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "false",
@@ -495,7 +496,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"consumers":                 int64(1),
 				"consumer_utilisation":      float64(1.0),
 				"memory":                    int64(15584),
@@ -523,12 +524,12 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_node",
+		metric.New("rabbitmq_node",
 			map[string]string{
 				"node": "rabbit@rmqserver",
 				"url":  ts.URL,
 			},
-			map[string]interface{}{
+			map[string]any{
 				"disk_free":                 int64(25086496768),
 				"disk_free_limit":           int64(50000000),
 				"disk_free_alarm":           int64(0),
@@ -583,7 +584,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_queue",
+		metric.New("rabbitmq_queue",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "false",
@@ -592,7 +593,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"consumers":                 int64(1),
 				"consumer_utilisation":      float64(1.0),
 				"memory":                    int64(12000),
@@ -620,7 +621,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_queue",
+		metric.New("rabbitmq_queue",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "false",
@@ -629,7 +630,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"consumers":                 int64(1),
 				"consumer_utilisation":      float64(1.0),
 				"memory":                    int64(15000),
@@ -657,7 +658,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_exchange",
+		metric.New("rabbitmq_exchange",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "true",
@@ -667,7 +668,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"messages_publish_in":       int64(284725),
 				"messages_publish_in_rate":  float64(0.0),
 				"messages_publish_out":      int64(284572),
@@ -675,7 +676,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_exchange",
+		metric.New("rabbitmq_exchange",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "true",
@@ -685,7 +686,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"messages_publish_in":       int64(0),
 				"messages_publish_in_rate":  float64(0.0),
 				"messages_publish_out":      int64(0),
@@ -693,7 +694,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_exchange",
+		metric.New("rabbitmq_exchange",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "true",
@@ -703,7 +704,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"messages_publish_in":       int64(0),
 				"messages_publish_in_rate":  float64(0.0),
 				"messages_publish_out":      int64(0),
@@ -711,7 +712,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_exchange",
+		metric.New("rabbitmq_exchange",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "true",
@@ -721,7 +722,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"messages_publish_in":       int64(0),
 				"messages_publish_in_rate":  float64(0.0),
 				"messages_publish_out":      int64(0),
@@ -729,7 +730,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_exchange",
+		metric.New("rabbitmq_exchange",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "true",
@@ -739,7 +740,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"messages_publish_in":       int64(0),
 				"messages_publish_in_rate":  float64(0.0),
 				"messages_publish_out":      int64(0),
@@ -747,7 +748,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_exchange",
+		metric.New("rabbitmq_exchange",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "true",
@@ -757,7 +758,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"messages_publish_in":       int64(0),
 				"messages_publish_in_rate":  float64(0.0),
 				"messages_publish_out":      int64(0),
@@ -765,7 +766,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_exchange",
+		metric.New("rabbitmq_exchange",
 			map[string]string{
 				"auto_delete": "false",
 				"durable":     "true",
@@ -775,7 +776,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"messages_publish_in":       int64(0),
 				"messages_publish_in_rate":  float64(0.0),
 				"messages_publish_out":      int64(0),
@@ -783,7 +784,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 			},
 			time.Unix(0, 0),
 		),
-		testutil.MustMetric("rabbitmq_exchange",
+		metric.New("rabbitmq_exchange",
 			map[string]string{
 				"auto_delete": "true",
 				"durable":     "false",
@@ -793,7 +794,7 @@ func TestRabbitMQGeneratesMetricsSet2(t *testing.T) {
 				"url":         ts.URL,
 				"vhost":       "/",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"messages_publish_in":       int64(18006),
 				"messages_publish_in_rate":  float64(0.0),
 				"messages_publish_out":      int64(60798),
@@ -928,9 +929,9 @@ func TestRabbitMQQueueTypeTag(t *testing.T) {
 
 	// Check that queue metrics don't have type tag when disabled
 	queueMetrics := acc.GetTelegrafMetrics()
-	for _, metric := range queueMetrics {
-		if metric.Name() == "rabbitmq_queue" {
-			require.False(t, metric.HasTag("type"), "Queue metric should not have type tag when IncludeQueueTypeTag is false")
+	for _, m := range queueMetrics {
+		if m.Name() == "rabbitmq_queue" {
+			require.False(t, m.HasTag("type"), "Queue metric should not have type tag when IncludeQueueTypeTag is false")
 		}
 	}
 
@@ -952,12 +953,12 @@ func TestRabbitMQQueueTypeTag(t *testing.T) {
 	queueMetricsWithType := accWithType.GetTelegrafMetrics()
 	queueTypeMap := make(map[string]string) // queue name -> queue type
 
-	for _, metric := range queueMetricsWithType {
-		if metric.Name() == "rabbitmq_queue" {
-			require.True(t, metric.HasTag("type"), "Queue metric should have type tag when IncludeQueueTypeTag is true")
+	for _, m := range queueMetricsWithType {
+		if m.Name() == "rabbitmq_queue" {
+			require.True(t, m.HasTag("type"), "Queue metric should have type tag when IncludeQueueTypeTag is true")
 
-			queueName, _ := metric.GetTag("queue")
-			queueType, _ := metric.GetTag("type")
+			queueName, _ := m.GetTag("queue")
+			queueType, _ := m.GetTag("type")
 			queueTypeMap[queueName] = queueType
 		}
 	}

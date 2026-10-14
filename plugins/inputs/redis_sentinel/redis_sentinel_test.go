@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go/network"
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -37,14 +37,14 @@ func TestRedisSentinelConnectIntegration(t *testing.T) {
 
 	firstSentinel := createSentinelContainer(redis.Name, net.Name, wait.ForAll(
 		wait.ForLog("+monitor master"),
-		wait.ForListeningPort(nat.Port(sentinelServicePort)),
+		wait.ForListeningPort(sentinelServicePort),
 	))
 	require.NoError(t, firstSentinel.Start(), "failed to start container")
 	defer firstSentinel.Terminate()
 
 	secondSentinel := createSentinelContainer(redis.Name, net.Name, wait.ForAll(
 		wait.ForLog("+sentinel sentinel"),
-		wait.ForListeningPort(nat.Port(sentinelServicePort)),
+		wait.ForListeningPort(sentinelServicePort),
 	))
 	require.NoError(t, secondSentinel.Start(), "failed to start container")
 	defer secondSentinel.Terminate()
@@ -79,7 +79,7 @@ func TestRedisSentinelMasters(t *testing.T) {
 	}
 
 	// has_quorum is a custom field
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"config_epoch":            0,
 		"down_after_milliseconds": 30000,
 		"failover_timeout":        180000,
@@ -102,7 +102,7 @@ func TestRedisSentinelMasters(t *testing.T) {
 	}
 
 	expectedMetrics := []telegraf.Metric{
-		testutil.MustMetric(measurementMasters, expectedTags, expectedFields, now),
+		metric.New(measurementMasters, expectedTags, expectedFields, now),
 	}
 
 	sentinelMastersOutput := map[string]string{
@@ -132,7 +132,7 @@ func TestRedisSentinelMasters(t *testing.T) {
 	require.NoErrorf(t, sentinelErr, "failed converting output: %v", sentinelErr)
 
 	actualMetrics := []telegraf.Metric{
-		testutil.MustMetric(measurementMasters, sentinelTags, sentinelFields, now),
+		metric.New(measurementMasters, sentinelTags, sentinelFields, now),
 	}
 
 	testutil.RequireMetricsEqual(t, expectedMetrics, actualMetrics, testutil.IgnoreTime())
@@ -148,7 +148,7 @@ func TestRedisSentinels(t *testing.T) {
 		"sentinel_port": "26380",
 		"master":        masterName,
 	}
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"name":                    "adfd343f6b6ecc77e2b9636de6d9f28d4b827521",
 		"flags":                   "sentinel",
 		"link_pending_commands":   0,
@@ -163,7 +163,7 @@ func TestRedisSentinels(t *testing.T) {
 	}
 
 	expectedMetrics := []telegraf.Metric{
-		testutil.MustMetric(measurementSentinels, expectedTags, expectedFields, now),
+		metric.New(measurementSentinels, expectedTags, expectedFields, now),
 	}
 
 	sentinelsOutput := map[string]string{
@@ -187,7 +187,7 @@ func TestRedisSentinels(t *testing.T) {
 	require.NoErrorf(t, sentinelErr, "failed converting output: %v", sentinelErr)
 
 	actualMetrics := []telegraf.Metric{
-		testutil.MustMetric(measurementSentinels, sentinelTags, sentinelFields, now),
+		metric.New(measurementSentinels, sentinelTags, sentinelFields, now),
 	}
 
 	testutil.RequireMetricsEqual(t, expectedMetrics, actualMetrics)
@@ -203,7 +203,7 @@ func TestRedisSentinelReplicas(t *testing.T) {
 		"replica_port": "6380",
 		"master":       masterName,
 	}
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"down_after_milliseconds": 30000,
 		"flags":                   "slave",
 		"info_refresh":            8476,
@@ -224,7 +224,7 @@ func TestRedisSentinelReplicas(t *testing.T) {
 	}
 
 	expectedMetrics := []telegraf.Metric{
-		testutil.MustMetric(measurementReplicas, expectedTags, expectedFields, now),
+		metric.New(measurementReplicas, expectedTags, expectedFields, now),
 	}
 
 	replicasOutput := map[string]string{
@@ -254,7 +254,7 @@ func TestRedisSentinelReplicas(t *testing.T) {
 	require.NoErrorf(t, sentinelErr, "failed converting output: %v", sentinelErr)
 
 	actualMetrics := []telegraf.Metric{
-		testutil.MustMetric(measurementReplicas, sentinelTags, sentinelFields, now),
+		metric.New(measurementReplicas, sentinelTags, sentinelFields, now),
 	}
 
 	testutil.RequireMetricsEqual(t, expectedMetrics, actualMetrics)
@@ -273,7 +273,7 @@ func TestRedisSentinelInfoAll(t *testing.T) {
 		"source": "redis.io",
 	}
 
-	expectedFields := map[string]interface{}{
+	expectedFields := map[string]any{
 		"lru_clock":     int64(15585808),
 		"uptime_ns":     int64(901000000000),
 		"redis_version": "5.0.5",
@@ -323,7 +323,7 @@ func TestRedisSentinelInfoAll(t *testing.T) {
 	}
 
 	expectedMetrics := []telegraf.Metric{
-		testutil.MustMetric(measurementSentinel, expectedTags, expectedFields, now),
+		metric.New(measurementSentinel, expectedTags, expectedFields, now),
 	}
 
 	sentinelInfoResponse, err := os.ReadFile("testdata/sentinel.info.response")
@@ -335,7 +335,7 @@ func TestRedisSentinelInfoAll(t *testing.T) {
 	require.NoErrorf(t, sentinelErr, "failed converting output: %v", sentinelErr)
 
 	actualMetrics := []telegraf.Metric{
-		testutil.MustMetric(measurementSentinel, sentinelTags, sentinelFields, now),
+		metric.New(measurementSentinel, sentinelTags, sentinelFields, now),
 	}
 
 	testutil.RequireMetricsEqual(t, expectedMetrics, actualMetrics)
@@ -349,7 +349,7 @@ func createRedisContainer(networkName string) testutil.Container {
 		ExposedPorts: []string{"6379"},
 		WaitingFor: wait.ForAll(
 			wait.ForLog("Ready to accept connections"),
-			wait.ForListeningPort(nat.Port("6379")),
+			wait.ForListeningPort("6379"),
 		),
 	}
 }

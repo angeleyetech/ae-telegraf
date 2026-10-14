@@ -104,7 +104,7 @@ func (b *MemoryBuffer) EndTransaction(tx *Transaction) {
 
 		// Restore the metrics that fit into the buffer
 		current := b.first
-		for i := 0; i < restore; i++ {
+		for i := range restore {
 			b.buf[current] = tx.Batch[keep[i]]
 			current = b.next(current)
 		}
@@ -144,7 +144,7 @@ func (b *MemoryBuffer) addMetric(m telegraf.Metric) int {
 		}
 	}
 
-	b.metricAdded()
+	b.metricAdded(1)
 
 	b.buf[b.last] = m
 	b.last = b.next(b.last)

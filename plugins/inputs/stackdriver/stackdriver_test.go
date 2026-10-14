@@ -14,13 +14,14 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/plugins/inputs"
 	"github.com/influxdata/telegraf/testutil"
 )
 
 type call struct {
 	name string
-	args []interface{}
+	args []any
 }
 
 type mockStackdriverClient struct {
@@ -36,7 +37,7 @@ func (m *mockStackdriverClient) listMetricDescriptors(
 	ctx context.Context,
 	req *monitoringpb.ListMetricDescriptorsRequest,
 ) (<-chan *metricpb.MetricDescriptor, error) {
-	call := &call{name: "listMetricDescriptors", args: []interface{}{ctx, req}}
+	call := &call{name: "listMetricDescriptors", args: []any{ctx, req}}
 	m.Lock()
 	m.calls = append(m.calls, call)
 	m.Unlock()
@@ -47,7 +48,7 @@ func (m *mockStackdriverClient) listTimeSeries(
 	ctx context.Context,
 	req *monitoringpb.ListTimeSeriesRequest,
 ) (<-chan *monitoringpb.TimeSeries, error) {
-	call := &call{name: "listTimeSeries", args: []interface{}{ctx, req}}
+	call := &call{name: "listTimeSeries", args: []any{ctx, req}}
 	m.Lock()
 	m.calls = append(m.calls, call)
 	m.Unlock()
@@ -55,7 +56,7 @@ func (m *mockStackdriverClient) listTimeSeries(
 }
 
 func (m *mockStackdriverClient) close() error {
-	call := &call{name: "close", args: make([]interface{}, 0)}
+	call := &call{name: "close", args: make([]any, 0)}
 	m.Lock()
 	m.calls = append(m.calls, call)
 	m.Unlock()
@@ -120,12 +121,12 @@ func TestGather(t *testing.T) {
 				metricpb.MetricDescriptor_DISTRIBUTION,
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric("",
+				metric.New("",
 					map[string]string{
 						"project_id":    "test",
 						"resource_type": "global",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"value_count":                    2,
 						"value_mean":                     float64(0),
 						"value_sum_of_squared_deviation": float64(0),
@@ -156,12 +157,12 @@ func TestGather(t *testing.T) {
 				metricpb.MetricDescriptor_INT64,
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage": 42,
 					},
 					now),
@@ -189,12 +190,12 @@ func TestGather(t *testing.T) {
 				metricpb.MetricDescriptor_DOUBLE,
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage": 42.0,
 					},
 					now),
@@ -222,12 +223,12 @@ func TestGather(t *testing.T) {
 				metricpb.MetricDescriptor_INT64,
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage": 42,
 					},
 					now),
@@ -255,12 +256,12 @@ func TestGather(t *testing.T) {
 				metricpb.MetricDescriptor_BOOL,
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage": true,
 					},
 					now),
@@ -288,12 +289,12 @@ func TestGather(t *testing.T) {
 				metricpb.MetricDescriptor_STRING,
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage": "foo",
 					},
 					now),
@@ -334,12 +335,12 @@ func TestGather(t *testing.T) {
 				ValueType: metricpb.MetricDescriptor_DOUBLE,
 			},
 			expected: []telegraf.Metric{
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "instance",
 						"project_id":    "test",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage": 42.0,
 					},
 					now),
@@ -385,12 +386,12 @@ func TestGather(t *testing.T) {
 				metricpb.MetricDescriptor_DISTRIBUTION,
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_count":                    int64(2),
 						"usage_range_min":                0.0,
 						"usage_range_max":                3.0,
@@ -398,43 +399,43 @@ func TestGather(t *testing.T) {
 						"usage_sum_of_squared_deviation": 1.0,
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "1",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(0),
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "2",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(1),
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "3",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(4),
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "+Inf",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(4),
 					},
 					now),
@@ -480,12 +481,12 @@ func TestGather(t *testing.T) {
 				metricpb.MetricDescriptor_DISTRIBUTION,
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_count":                    int64(2),
 						"usage_range_min":                0.0,
 						"usage_range_max":                3.0,
@@ -493,43 +494,43 @@ func TestGather(t *testing.T) {
 						"usage_sum_of_squared_deviation": 1.0,
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "1",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(0),
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "2",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(1),
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "4",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(4),
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "+Inf",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(4),
 					},
 					now),
@@ -573,12 +574,12 @@ func TestGather(t *testing.T) {
 				metricpb.MetricDescriptor_DISTRIBUTION,
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_count":                    int64(4),
 						"usage_range_min":                0.0,
 						"usage_range_max":                3.0,
@@ -586,33 +587,33 @@ func TestGather(t *testing.T) {
 						"usage_sum_of_squared_deviation": 1.0,
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "1",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(0),
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "2",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(1),
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "+Inf",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(4),
 					},
 					now),
@@ -658,12 +659,12 @@ func TestGather(t *testing.T) {
 				metricpb.MetricDescriptor_DISTRIBUTION,
 			),
 			expected: []telegraf.Metric{
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_count":                    int64(2),
 						"usage_range_min":                0.0,
 						"usage_range_max":                3.0,
@@ -671,43 +672,43 @@ func TestGather(t *testing.T) {
 						"usage_sum_of_squared_deviation": 1.0,
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "1",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(0),
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "2",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(1),
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "3",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(1),
 					},
 					now),
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 						"lt":            "+Inf",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_bucket": int64(1),
 					},
 					now),
@@ -822,12 +823,12 @@ func TestGatherAlign(t *testing.T) {
 				),
 			},
 			expected: []telegraf.Metric{
-				testutil.MustMetric("telegraf/cpu",
+				metric.New("telegraf/cpu",
 					map[string]string{
 						"resource_type": "global",
 						"project_id":    "test",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"usage_align_percentile_99": 42.0,
 						"usage_align_percentile_95": 42.0,
 						"usage_align_percentile_50": 42.0,

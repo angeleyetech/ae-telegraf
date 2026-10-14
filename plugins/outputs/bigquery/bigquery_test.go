@@ -10,6 +10,7 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 	"google.golang.org/api/option/internaloption"
 
@@ -202,9 +203,9 @@ func TestWriteCompact(t *testing.T) {
 	require.Len(t, rows, 1)
 	require.Contains(t, rows[0], "json")
 
-	var row interface{}
+	var row any
 	require.NoError(t, json.Unmarshal(rows[0]["json"], &row))
-	require.Equal(t, map[string]interface{}{
+	require.Equal(t, map[string]any{
 		"timestamp": "2009-11-10T23:00:00Z",
 		"name":      "test1",
 		"tags":      `{"tag1":"value1"}`,
@@ -224,10 +225,8 @@ func TestAutoDetect(t *testing.T) {
 		CompactTable: "test-metrics",
 	}
 
-	credentialsJSON := []byte(`{"type": "service_account", "project_id": "test-project"}`)
-
 	require.NoError(t, b.Init())
-	require.NoError(t, b.setUpTestClientWithJSON(srv.URL, credentialsJSON))
+	require.NoError(t, b.setUpTestClientWithJSON(srv.URL))
 	require.NoError(t, b.Connect())
 	require.NoError(t, b.Close())
 }
@@ -249,10 +248,12 @@ func (b *BigQuery) setUpTestClient(endpointURL string) error {
 	return nil
 }
 
-func (b *BigQuery) setUpTestClientWithJSON(endpointURL string, credentialsJSON []byte) error {
+func (b *BigQuery) setUpTestClientWithJSON(endpointURL string) error {
 	noAuth := option.WithoutAuthentication()
 	endpoint := option.WithEndpoint(endpointURL)
-	credentials := option.WithCredentialsJSON(credentialsJSON)
+	credentials := internaloption.WithCredentials(&google.Credentials{
+		ProjectID: "test-project",
+	})
 	skipValidate := internaloption.SkipDialSettingsValidation()
 
 	ctx := context.Background()

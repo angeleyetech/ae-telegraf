@@ -8,10 +8,9 @@ This plugin reports the number and total size of files in specified directories.
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -50,6 +49,9 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
   ## duration. If mtime is negative, only count files that have been
   ## touched in this duration. Defaults to "0s".
   mtime = "0s"
+
+  ## Stop counting after this duration has passed (disabled by default)
+  # timeout = "0s"
 ```
 
 ## Metrics

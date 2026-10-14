@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/config"
 	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
@@ -143,7 +144,7 @@ func TestWriteTagsAsResourceLabels(t *testing.T) {
 				"job_name": "cpu",
 				"mytag":    "foo",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 42,
 			},
 			time.Unix(2, 0),
@@ -154,7 +155,7 @@ func TestWriteTagsAsResourceLabels(t *testing.T) {
 				"job_name": "mem",
 				"mytag":    "bar",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 42,
 			},
 			time.Unix(2, 0),
@@ -209,21 +210,21 @@ func TestWriteMetricTypesOfficial(t *testing.T) {
 	input := []telegraf.Metric{
 		metric.New("mem_g",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"value": 42,
 			},
 			time.Unix(3, 0),
 		),
 		metric.New("mem_c",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"value": 42,
 			},
 			time.Unix(3, 0),
 		),
 		metric.New("mem_h",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"sum":   1,
 				"count": 1,
 				"5.0":   0.0,
@@ -285,14 +286,14 @@ func TestWriteMetricTypesPath(t *testing.T) {
 	input := []telegraf.Metric{
 		metric.New("mem_g",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"value": 42,
 			},
 			time.Unix(3, 0),
 		),
 		metric.New("mem_c",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"value": 42,
 			},
 			time.Unix(3, 0),
@@ -340,14 +341,14 @@ func TestWriteAscendingTime(t *testing.T) {
 	input := []telegraf.Metric{
 		metric.New("cpu",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"value": 42,
 			},
 			time.Unix(2, 0),
 		),
 		metric.New("cpu",
 			map[string]string{},
-			map[string]interface{}{
+			map[string]any{
 				"value": 43,
 			},
 			time.Unix(1, 0),
@@ -400,7 +401,7 @@ func TestWriteBatchable(t *testing.T) {
 			map[string]string{
 				"foo": "bar",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 42,
 			},
 			time.Unix(2, 0),
@@ -409,7 +410,7 @@ func TestWriteBatchable(t *testing.T) {
 			map[string]string{
 				"foo": "foo",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 43,
 			},
 			time.Unix(3, 0),
@@ -418,7 +419,7 @@ func TestWriteBatchable(t *testing.T) {
 			map[string]string{
 				"foo": "bar",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 41,
 			},
 			time.Unix(1, 0),
@@ -427,7 +428,7 @@ func TestWriteBatchable(t *testing.T) {
 			map[string]string{
 				"foo": "bar",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 44,
 			},
 			time.Unix(4, 0),
@@ -436,7 +437,7 @@ func TestWriteBatchable(t *testing.T) {
 			map[string]string{
 				"foo": "foo",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 45,
 			},
 			time.Unix(5, 0),
@@ -445,7 +446,7 @@ func TestWriteBatchable(t *testing.T) {
 			map[string]string{
 				"foo": "bar",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 43,
 			},
 			time.Unix(3, 0),
@@ -454,7 +455,7 @@ func TestWriteBatchable(t *testing.T) {
 			map[string]string{
 				"foo": "foo",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 43,
 			},
 			time.Unix(3, 0),
@@ -463,7 +464,7 @@ func TestWriteBatchable(t *testing.T) {
 			map[string]string{
 				"foo": "bar",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 41,
 			},
 			time.Unix(1, 0),
@@ -671,6 +672,253 @@ func TestWritePassthroughErrors(t *testing.T) {
 	require.ErrorContains(t, plugin.Write(testutil.MockMetrics()), "desc = unknown")
 }
 
+func TestWriteDropsFailedPrecondition(t *testing.T) {
+	// FAILED_PRECONDITION is a permanent rejection. Retrying it re-sends points
+	// that already landed, which produces the duplicates that caused the error.
+	server := &mockServer{
+		errForCall: map[int]error{
+			1: status.New(codes.FailedPrecondition, "one or more points were written more frequently than the maximum sampling period").Err(),
+		},
+	}
+	srv, client := startServer(t, server)
+	defer srv.GracefulStop()
+
+	// Setup and start the plugin with the injected client
+	plugin := &Stackdriver{
+		Project:   "projects/[PROJECT]",
+		Namespace: "test",
+		Log:       testutil.Logger{},
+		client:    client,
+	}
+	require.NoError(t, plugin.Init())
+	require.NoError(t, plugin.Connect())
+
+	require.NoError(t, plugin.Write(testutil.MockMetrics()))
+	require.Len(t, server.reqs, 1)
+}
+
+func TestWriteSendsRemainingChunksAfterPermanentFailure(t *testing.T) {
+	// Previously the first chunk failing with InvalidArgument returned nil, so
+	// the later chunks were never sent and Telegraf still cleared the batch.
+	server := &mockServer{
+		errForCall: map[int]error{
+			1: status.New(codes.InvalidArgument, "bad point in first chunk").Err(),
+		},
+	}
+	srv, client := startServer(t, server)
+	defer srv.GracefulStop()
+
+	// Setup and start the plugin with the injected client
+	plugin := &Stackdriver{
+		Project:   "projects/[PROJECT]",
+		Namespace: "test",
+		Log:       testutil.Logger{},
+		client:    client,
+	}
+	require.NoError(t, plugin.Init())
+	require.NoError(t, plugin.Connect())
+
+	// 250 distinct series sharing one timestamp: one group, chunks of 200 and 50
+	input := make([]telegraf.Metric, 0, 250)
+	for i := range 250 {
+		input = append(input, metric.New(
+			fmt.Sprintf("series_%03d", i),
+			map[string]string{},
+			map[string]any{
+				"value": 42,
+			},
+			time.Unix(1, 0),
+		))
+	}
+
+	// The failure is permanent, so the batch must not be handed back to Telegraf
+	require.NoError(t, plugin.Write(input))
+
+	reqs := server.reqs
+	require.Len(t, reqs, 2, "the chunk following the failed one must still be sent")
+	first, ok := reqs[0].(*monitoringpb.CreateTimeSeriesRequest)
+	require.Truef(t, ok, "Invalid request type %T for request 0", reqs[0])
+	require.Len(t, first.TimeSeries, 200)
+	second, ok := reqs[1].(*monitoringpb.CreateTimeSeriesRequest)
+	require.Truef(t, ok, "Invalid request type %T for request 1", reqs[1])
+	require.Len(t, second.TimeSeries, 50)
+}
+
+func TestWriteSendsRemainingTimestampGroupsAfterPermanentFailure(t *testing.T) {
+	// The outer loop in Write must not abandon later timestamp groups when an
+	// earlier group is permanently rejected.
+	server := &mockServer{
+		errForCall: map[int]error{
+			1: status.New(codes.InvalidArgument, "bad point in first group").Err(),
+		},
+	}
+	srv, client := startServer(t, server)
+	defer srv.GracefulStop()
+
+	// Setup and start the plugin with the injected client
+	plugin := &Stackdriver{
+		Project:   "projects/[PROJECT]",
+		Namespace: "test",
+		Log:       testutil.Logger{},
+		client:    client,
+	}
+	require.NoError(t, plugin.Init())
+	require.NoError(t, plugin.Connect())
+
+	// Two distinct timestamps produce two groups, hence two requests
+	input := []telegraf.Metric{
+		metric.New(
+			"first",
+			map[string]string{},
+			map[string]any{
+				"value": 42,
+			},
+			time.Unix(1, 0),
+		),
+		metric.New(
+			"second",
+			map[string]string{},
+			map[string]any{
+				"value": 43,
+			},
+			time.Unix(2, 0),
+		),
+	}
+
+	require.NoError(t, plugin.Write(input))
+	require.Len(t, server.reqs, 2, "the timestamp group following the failed one must still be sent")
+}
+
+func TestWriteRetryableOnLaterChunkPropagates(t *testing.T) {
+	// A retryable failure must be returned even when earlier chunks succeeded.
+	server := &mockServer{
+		errForCall: map[int]error{
+			2: status.New(codes.Unavailable, "backend down").Err(),
+		},
+	}
+	srv, client := startServer(t, server)
+	defer srv.GracefulStop()
+
+	// Setup and start the plugin with the injected client
+	plugin := &Stackdriver{
+		Project:   "projects/[PROJECT]",
+		Namespace: "test",
+		Log:       testutil.Logger{},
+		client:    client,
+	}
+	require.NoError(t, plugin.Init())
+	require.NoError(t, plugin.Connect())
+
+	// 250 distinct series sharing one timestamp: one group, chunks of 200 and 50
+	input := make([]telegraf.Metric, 0, 250)
+	for i := range 250 {
+		input = append(input, metric.New(
+			fmt.Sprintf("series_%03d", i),
+			map[string]string{},
+			map[string]any{
+				"value": 42,
+			},
+			time.Unix(1, 0),
+		))
+	}
+
+	require.ErrorContains(t, plugin.Write(input), "backend down")
+	require.Len(t, server.reqs, 2, "the earlier chunk must still have been sent")
+}
+
+func TestWritePermanentThenRetryableReturnsError(t *testing.T) {
+	// A retryable failure after a permanent one must still be returned.
+	server := &mockServer{
+		errForCall: map[int]error{
+			1: status.New(codes.InvalidArgument, "bad point in first chunk").Err(),
+			2: status.New(codes.Unavailable, "backend down").Err(),
+		},
+	}
+	srv, client := startServer(t, server)
+	defer srv.GracefulStop()
+
+	// Setup and start the plugin with the injected client
+	plugin := &Stackdriver{
+		Project:   "projects/[PROJECT]",
+		Namespace: "test",
+		Log:       testutil.Logger{},
+		client:    client,
+	}
+	require.NoError(t, plugin.Init())
+	require.NoError(t, plugin.Connect())
+
+	// 250 distinct series sharing one timestamp: one group, chunks of 200 and 50
+	input := make([]telegraf.Metric, 0, 250)
+	for i := range 250 {
+		input = append(input, metric.New(
+			fmt.Sprintf("series_%03d", i),
+			map[string]string{},
+			map[string]any{
+				"value": 42,
+			},
+			time.Unix(1, 0),
+		))
+	}
+
+	require.ErrorContains(t, plugin.Write(input), "backend down")
+	require.Len(t, server.reqs, 2)
+}
+
+func TestWriteErrorClassification(t *testing.T) {
+	// Retryable codes are returned so Telegraf replays the batch; permanent ones
+	// are dropped so it drains.
+	tests := []struct {
+		name      string
+		code      codes.Code
+		retryable bool
+	}{
+		{"canceled", codes.Canceled, true},
+		{"unavailable", codes.Unavailable, true},
+		{"deadline exceeded", codes.DeadlineExceeded, true},
+		{"resource exhausted", codes.ResourceExhausted, true},
+		{"aborted", codes.Aborted, true},
+		{"internal", codes.Internal, true},
+		{"unknown", codes.Unknown, true},
+		// Auth failures are transient in practice and must not drop metrics
+		{"unauthenticated", codes.Unauthenticated, true},
+		{"permission denied", codes.PermissionDenied, true},
+		{"invalid argument", codes.InvalidArgument, false},
+		{"failed precondition", codes.FailedPrecondition, false},
+		{"out of range", codes.OutOfRange, false},
+		{"not found", codes.NotFound, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := &mockServer{
+				errForCall: map[int]error{
+					1: status.New(tt.code, "rejected").Err(),
+				},
+			}
+			srv, client := startServer(t, server)
+			defer srv.GracefulStop()
+
+			// Setup and start the plugin with the injected client
+			plugin := &Stackdriver{
+				Project:   "projects/[PROJECT]",
+				Namespace: "test",
+				Log:       testutil.Logger{},
+				client:    client,
+			}
+			require.NoError(t, plugin.Init())
+			require.NoError(t, plugin.Connect())
+
+			err := plugin.Write(testutil.MockMetrics())
+			if tt.retryable {
+				require.ErrorContains(t, err, "desc = rejected")
+			} else {
+				require.NoError(t, err, "a permanent rejection must be dropped, not retried")
+			}
+			require.Len(t, server.reqs, 1)
+		})
+	}
+}
+
 func TestIntervalEndpoints(t *testing.T) {
 	// Start the test-server
 	server := &mockServer{err: errors.New("invalid argument")}
@@ -702,7 +950,7 @@ func TestIntervalEndpoints(t *testing.T) {
 			map[string]string{
 				"foo": "bar",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 42,
 			},
 			now,
@@ -712,7 +960,7 @@ func TestIntervalEndpoints(t *testing.T) {
 			map[string]string{
 				"foo": "foo",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 43,
 			},
 			later,
@@ -722,7 +970,7 @@ func TestIntervalEndpoints(t *testing.T) {
 			map[string]string{
 				"foo": "bar",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 42,
 			},
 			now,
@@ -732,7 +980,7 @@ func TestIntervalEndpoints(t *testing.T) {
 			map[string]string{
 				"foo": "foo",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"value": 43,
 			},
 			later,
@@ -778,7 +1026,7 @@ func TestTypedValuesSource(t *testing.T) {
 	tests := []struct {
 		name     string
 		key      string
-		expected interface{}
+		expected any
 		value    any
 	}{
 		{
@@ -819,7 +1067,7 @@ func TestTypedValuesInt64(t *testing.T) {
 	tests := []struct {
 		name     string
 		key      string
-		expected interface{}
+		expected any
 		value    any
 	}{
 		{
@@ -877,7 +1125,7 @@ func TestMetricNamePath(t *testing.T) {
 		map[string]string{
 			"foo": "bar",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"value": 42,
 		},
 		time.Now(),
@@ -900,7 +1148,7 @@ func TestMetricNameOfficial(t *testing.T) {
 			metric: metric.New(
 				"uptime",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42,
 				},
 				time.Now(),
@@ -914,7 +1162,7 @@ func TestMetricNameOfficial(t *testing.T) {
 			metric: metric.New(
 				"uptime",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42,
 				},
 				time.Now(),
@@ -928,7 +1176,7 @@ func TestMetricNameOfficial(t *testing.T) {
 			metric: metric.New(
 				"uptime",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42,
 				},
 				time.Now(),
@@ -942,7 +1190,7 @@ func TestMetricNameOfficial(t *testing.T) {
 			metric: metric.New(
 				"uptime",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42,
 				},
 				time.Now(),
@@ -956,7 +1204,7 @@ func TestMetricNameOfficial(t *testing.T) {
 			metric: metric.New(
 				"uptime",
 				map[string]string{},
-				map[string]interface{}{
+				map[string]any{
 					"value": 42,
 				},
 				time.Now(),
@@ -998,7 +1246,7 @@ func TestGenerateHistogramName(t *testing.T) {
 			metric: metric.New(
 				"uptime",
 				map[string]string{},
-				map[string]interface{}{"value": 42},
+				map[string]any{"value": 42},
 				time.Now(),
 				telegraf.Histogram,
 			),
@@ -1012,7 +1260,7 @@ func TestGenerateHistogramName(t *testing.T) {
 			metric: metric.New(
 				"uptime",
 				map[string]string{},
-				map[string]interface{}{"value": 42},
+				map[string]any{"value": 42},
 				time.Now(),
 				telegraf.Histogram,
 			),
@@ -1026,7 +1274,7 @@ func TestGenerateHistogramName(t *testing.T) {
 			metric: metric.New(
 				"uptime",
 				map[string]string{},
-				map[string]interface{}{"value": 42},
+				map[string]any{"value": 42},
 				time.Now(),
 				telegraf.Histogram,
 			),
@@ -1040,7 +1288,7 @@ func TestGenerateHistogramName(t *testing.T) {
 			metric: metric.New(
 				"uptime",
 				map[string]string{},
-				map[string]interface{}{"value": 42},
+				map[string]any{"value": 42},
 				time.Now(),
 				telegraf.Histogram,
 			),
@@ -1054,7 +1302,7 @@ func TestGenerateHistogramName(t *testing.T) {
 			metric: metric.New(
 				"uptime",
 				map[string]string{},
-				map[string]interface{}{"value": 42},
+				map[string]any{"value": 42},
 				time.Now(),
 				telegraf.Histogram,
 			),
@@ -1068,7 +1316,7 @@ func TestGenerateHistogramName(t *testing.T) {
 			metric: metric.New(
 				"uptime",
 				map[string]string{},
-				map[string]interface{}{"value": 42},
+				map[string]any{"value": 42},
 				time.Now(),
 				telegraf.Histogram,
 			),
@@ -1143,7 +1391,7 @@ func TestBuildHistogram(t *testing.T) {
 	m := metric.New(
 		"http_server_duration",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"sum":   1,
 			"count": 2,
 			"5.0":   0.0,
@@ -1172,6 +1420,16 @@ func TestBuildHistogram(t *testing.T) {
 	value, err := buildHistogram(m)
 	require.NoError(t, err)
 	require.Equal(t, expected, value.GetDistributionValue())
+}
+
+func TestSecretTokenSource(t *testing.T) {
+	secret := config.NewSecret([]byte("my-access-token"))
+	ts := &secretTokenSource{secret: &secret}
+
+	token, err := ts.Token()
+	require.NoError(t, err)
+	require.Equal(t, "my-access-token", token.AccessToken)
+	require.Equal(t, "Bearer", token.TokenType)
 }
 
 func startServer(t *testing.T, mock *mockServer) (*grpc.Server, *monitoring.MetricClient) {
@@ -1207,6 +1465,10 @@ type mockServer struct {
 	// If set, all calls return this error.
 	err error
 
+	// Errors to return for individual calls, keyed by the one-based call
+	// number. Calls without an entry succeed.
+	errForCall map[int]error
+
 	// responses to return if err == nil
 	resps []proto.Message
 }
@@ -1218,6 +1480,14 @@ func (s *mockServer) CreateTimeSeries(ctx context.Context, req *monitoringpb.Cre
 	}
 
 	s.reqs = append(s.reqs, req)
+
+	if s.errForCall != nil {
+		if err, ok := s.errForCall[len(s.reqs)]; ok {
+			return nil, err
+		}
+		return &emptypb.Empty{}, nil
+	}
+
 	if s.err != nil {
 		var statusResp *status.Status
 		switch s.err.Error() {

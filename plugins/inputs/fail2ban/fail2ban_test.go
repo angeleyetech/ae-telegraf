@@ -56,7 +56,7 @@ func TestGather(t *testing.T) {
 	require.NoError(t, f.Init())
 	require.NoError(t, f.Gather(&acc))
 
-	fields1 := map[string]interface{}{
+	fields1 := map[string]any{
 		"banned": 2,
 		"failed": 0,
 	}
@@ -64,7 +64,7 @@ func TestGather(t *testing.T) {
 		"jail": "sshd",
 	}
 
-	fields2 := map[string]interface{}{
+	fields2 := map[string]any{
 		"banned": 3,
 		"failed": 4,
 	}
@@ -72,7 +72,7 @@ func TestGather(t *testing.T) {
 		"jail": "postfix",
 	}
 
-	fields3 := map[string]interface{}{
+	fields3 := map[string]any{
 		"banned": 0,
 		"failed": 11,
 	}
@@ -86,7 +86,8 @@ func TestGather(t *testing.T) {
 }
 
 func fakeExecCommand(command string, args ...string) *exec.Cmd {
-	cs := []string{"-test.run=TestHelperProcess", "--", command}
+	cs := make([]string, 0, len(args)+3)
+	cs = append(cs, "-test.run=TestHelperProcess", "--", command)
 	cs = append(cs, args...)
 	cmd := exec.Command(os.Args[0], cs...)
 	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}

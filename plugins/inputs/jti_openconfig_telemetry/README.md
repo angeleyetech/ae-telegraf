@@ -23,10 +23,9 @@ normal plugins:
 
 ## Global configuration options <!-- @/docs/includes/plugin_config.md -->
 
-In addition to the plugin-specific configuration settings, plugins support
-additional global and plugin configuration settings. These settings are used to
-modify metrics, tags, and field or create aliases and configure ordering, etc.
-See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
+Plugins support additional global and plugin configuration settings for tasks
+such as modifying metrics, tags, and fields, creating aliases, and configuring
+plugin ordering. See [CONFIGURATION.md][CONFIGURATION.md] for more details.
 
 [CONFIGURATION.md]: ../../../docs/CONFIGURATION.md#plugins
 
@@ -54,18 +53,13 @@ See the [CONFIGURATION.md][CONFIGURATION.md] for more details.
   ## When identifier is used, we can provide a list of space separated sensors.
   ## A single subscription will be created with all these sensors and data will
   ## be saved to measurement with this identifier name
+  ## We allow specifying sensor group level reporting rate. To do this, specify the
+  ## reporting rate in Duration at the beginning of sensor paths / collection
+  ## name. For entries without reporting rate, we use configured sample frequency.
   sensors = [
    "/interfaces/",
    "collection /components/ /lldp",
-  ]
-
-  ## We allow specifying sensor group level reporting rate. To do this, specify the
-  ## reporting rate in Duration at the beginning of sensor paths / collection
-  ## name. For entries without reporting rate, we use configured sample frequency
-  sensors = [
    "1000ms customReporting /interfaces /lldp",
-   "2000ms collection /components",
-   "/interfaces",
   ]
 
   ## Timestamp Source

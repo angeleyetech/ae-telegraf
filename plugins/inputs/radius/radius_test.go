@@ -13,6 +13,7 @@ import (
 	"layeh.com/radius/rfc2865"
 
 	"github.com/influxdata/telegraf/config"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -323,14 +324,14 @@ func TestRadiusIntegrationInvalidSourceIP(t *testing.T) {
 		Log:             testutil.Logger{},
 	}
 
-	expected := testutil.MustMetric(
+	expected := metric.New(
 		"radius",
 		map[string]string{
 			"source":        container.Address,
 			"source_port":   port,
 			"response_code": "timeout",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"responsetime_ms": 1000,
 		},
 		time.Time{},

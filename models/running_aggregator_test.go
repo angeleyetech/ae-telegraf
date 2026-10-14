@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/influxdata/telegraf"
+	"github.com/influxdata/telegraf/metric"
 	"github.com/influxdata/telegraf/testutil"
 )
 
@@ -25,9 +26,9 @@ func TestRunningAggregatorAdd(t *testing.T) {
 	now := time.Now()
 	ra.UpdateWindow(now, now.Add(ra.Config.Period))
 
-	m := testutil.MustMetric("RITest",
+	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		time.Now().Add(time.Millisecond*150),
@@ -53,9 +54,9 @@ func TestRunningAggregatorAddMetricsOutsideCurrentPeriod(t *testing.T) {
 	now := time.Now()
 	ra.UpdateWindow(now, now.Add(ra.Config.Period))
 
-	m := testutil.MustMetric("RITest",
+	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now.Add(-time.Hour),
@@ -64,9 +65,9 @@ func TestRunningAggregatorAddMetricsOutsideCurrentPeriod(t *testing.T) {
 	require.False(t, ra.Add(m))
 
 	// metric after current period
-	m = testutil.MustMetric("RITest",
+	m = metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now.Add(time.Hour),
@@ -75,9 +76,9 @@ func TestRunningAggregatorAddMetricsOutsideCurrentPeriod(t *testing.T) {
 	require.False(t, ra.Add(m))
 
 	// "now" metric
-	m = testutil.MustMetric("RITest",
+	m = metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		time.Now().Add(time.Millisecond*50),
@@ -104,9 +105,9 @@ func TestRunningAggregatorAddMetricsOutsideCurrentPeriodWithGrace(t *testing.T) 
 	now := time.Now()
 	ra.UpdateWindow(now, now.Add(ra.Config.Period))
 
-	m := testutil.MustMetric("RITest",
+	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now.Add(-time.Hour),
@@ -115,9 +116,9 @@ func TestRunningAggregatorAddMetricsOutsideCurrentPeriodWithGrace(t *testing.T) 
 	require.False(t, ra.Add(m))
 
 	// metric before current period (late)
-	m = testutil.MustMetric("RITest",
+	m = metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(100),
 		},
 		now.Add(-time.Millisecond*1000),
@@ -126,9 +127,9 @@ func TestRunningAggregatorAddMetricsOutsideCurrentPeriodWithGrace(t *testing.T) 
 	require.False(t, ra.Add(m))
 
 	// metric before current period, but within grace period (late)
-	m = testutil.MustMetric("RITest",
+	m = metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(102),
 		},
 		now.Add(-time.Millisecond*200),
@@ -137,9 +138,9 @@ func TestRunningAggregatorAddMetricsOutsideCurrentPeriodWithGrace(t *testing.T) 
 	require.False(t, ra.Add(m))
 
 	// "now" metric
-	m = testutil.MustMetric("RITest",
+	m = metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		time.Now().Add(time.Millisecond*50),
@@ -166,9 +167,9 @@ func TestRunningAggregatorAddAndPushOnePeriod(t *testing.T) {
 	now := time.Now()
 	ra.UpdateWindow(now, now.Add(ra.Config.Period))
 
-	m := testutil.MustMetric("RITest",
+	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		time.Now().Add(time.Millisecond*100),
@@ -177,7 +178,7 @@ func TestRunningAggregatorAddAndPushOnePeriod(t *testing.T) {
 
 	ra.Push(&acc)
 
-	acc.AssertContainsFields(t, "TestMetric", map[string]interface{}{"sum": int64(101)})
+	acc.AssertContainsFields(t, "TestMetric", map[string]any{"sum": int64(101)})
 }
 
 func TestRunningAggregatorAddDropOriginal(t *testing.T) {
@@ -193,9 +194,9 @@ func TestRunningAggregatorAddDropOriginal(t *testing.T) {
 	now := time.Now()
 	ra.UpdateWindow(now, now.Add(ra.Config.Period))
 
-	m := testutil.MustMetric("RITest",
+	m := metric.New("RITest",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now,
@@ -203,9 +204,9 @@ func TestRunningAggregatorAddDropOriginal(t *testing.T) {
 	require.True(t, ra.Add(m))
 
 	// this metric name doesn't match the filter, so Add will return false
-	m2 := testutil.MustMetric("foobar",
+	m2 := metric.New("foobar",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"value": int64(101),
 		},
 		now,
@@ -225,10 +226,10 @@ func TestRunningAggregatorAddDoesNotModifyMetric(t *testing.T) {
 
 	now := time.Now()
 
-	m := testutil.MustMetric(
+	m := metric.New(
 		"cpu",
 		map[string]string{},
-		map[string]interface{}{
+		map[string]any{
 			"a": int64(42),
 			"b": int64(42),
 		},
@@ -237,6 +238,27 @@ func TestRunningAggregatorAddDoesNotModifyMetric(t *testing.T) {
 	ra.Add(m)
 
 	testutil.RequireMetricEqual(t, expected, m)
+}
+
+func TestRunningAggregatorPushResetsWindowOnLargeForwardJump(t *testing.T) {
+	// Regression guard for PR #16375: the drift safeguard must reset the
+	// window when the wall clock is beyond the expected window, such as
+	// after hibernation.
+	ra := NewRunningAggregator(&mockAggregator{}, &AggregatorConfig{
+		Name:   "TestRunningAggregator",
+		Filter: Filter{NamePass: []string{"*"}},
+		Period: 10 * time.Second,
+	})
+	require.NoError(t, ra.Config.Filter.Compile())
+	acc := testutil.Accumulator{}
+
+	staleEnd := time.Now().Add(-2 * time.Minute)
+	ra.UpdateWindow(staleEnd.Add(-ra.Config.Period), staleEnd)
+
+	ra.Push(&acc)
+
+	// After a reset the new window end lands in (now, now+period].
+	require.WithinDuration(t, time.Now(), ra.EndPeriod(), ra.Config.Period)
 }
 
 type mockAggregator struct {
@@ -253,7 +275,7 @@ func (t *mockAggregator) Reset() {
 
 func (t *mockAggregator) Push(acc telegraf.Accumulator) {
 	acc.AddFields("TestMetric",
-		map[string]interface{}{"sum": t.sum},
+		map[string]any{"sum": t.sum},
 		map[string]string{},
 	)
 }

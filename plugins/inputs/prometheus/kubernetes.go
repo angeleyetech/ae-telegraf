@@ -12,6 +12,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -84,9 +85,7 @@ func (p *Prometheus) startK8s(ctx context.Context) error {
 		}
 	}
 
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
+	p.wg.Go(func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -111,7 +110,7 @@ func (p *Prometheus) startK8s(ctx context.Context) error {
 				}
 			}
 		}
-	}()
+	})
 
 	return nil
 }
@@ -135,8 +134,14 @@ func shouldScrapePod(pod *corev1.Pod, p *Prometheus) bool {
 	return isCandidate && shouldScrape
 }
 
-// Share informer per namespace across all instances of this plugin
-var informerfactory map[string]informers.SharedInformerFactory
+// Share informer per namespace across all instances of this plugin.
+// Access must be protected by informerfactoryMu since multiple plugin
+// instances may Start/Stop concurrently.
+var (
+	informerfactory     map[string]informers.SharedInformerFactory
+	informerfactoryRefs map[string]int
+	informerfactoryMu   sync.Mutex
+)
 
 // An edge case exists if a pod goes offline at the same time a new pod is created
 // (without the scrape annotations). K8s may re-assign the old pod ip to the non-scrape
@@ -151,8 +156,10 @@ func (p *Prometheus) watchPod(ctx context.Context, clientset *kubernetes.Clients
 		resyncinterval = 60 * time.Minute
 	}
 
+	informerfactoryMu.Lock()
 	if informerfactory == nil {
 		informerfactory = make(map[string]informers.SharedInformerFactory)
+		informerfactoryRefs = make(map[string]int)
 	}
 
 	var f informers.SharedInformerFactory
@@ -165,6 +172,8 @@ func (p *Prometheus) watchPod(ctx context.Context, clientset *kubernetes.Clients
 		f = informers.NewSharedInformerFactoryWithOptions(clientset, resyncinterval, informerOptions...)
 		informerfactory[p.PodNamespace] = f
 	}
+	informerfactoryRefs[p.PodNamespace]++
+	informerfactoryMu.Unlock()
 
 	if p.nsAnnotationPass != nil || p.nsAnnotationDrop != nil {
 		p.nsStore = f.Core().V1().Namespaces().Informer().GetStore()
@@ -172,7 +181,7 @@ func (p *Prometheus) watchPod(ctx context.Context, clientset *kubernetes.Clients
 
 	podinformer := f.Core().V1().Pods()
 	_, err := podinformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(newObj interface{}) {
+		AddFunc: func(newObj any) {
 			newPod, ok := newObj.(*corev1.Pod)
 			if !ok {
 				p.Log.Errorf("[BUG] received unexpected object: %v", newObj)
@@ -183,7 +192,7 @@ func (p *Prometheus) watchPod(ctx context.Context, clientset *kubernetes.Clients
 			}
 		},
 		// On Pod status updates and regular reList by Informer
-		UpdateFunc: func(_, newObj interface{}) {
+		UpdateFunc: func(_, newObj any) {
 			newPod, ok := newObj.(*corev1.Pod)
 			if !ok {
 				p.Log.Errorf("[BUG] received unexpected object: %v", newObj)
@@ -206,7 +215,7 @@ func (p *Prometheus) watchPod(ctx context.Context, clientset *kubernetes.Clients
 				unregisterPod(podID, p)
 			}
 		},
-		DeleteFunc: func(oldObj interface{}) {
+		DeleteFunc: func(oldObj any) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(oldObj)
 			if err == nil {
 				unregisterPod(podID(key), p)
@@ -406,12 +415,8 @@ func registerPod(pod *corev1.Pod, p *Prometheus) {
 		}
 	}
 
-	tags["pod_name"] = pod.Name
-	podNamespace := "namespace"
-	if p.PodNamespaceLabelName != "" {
-		podNamespace = p.PodNamespaceLabelName
-	}
-	tags[podNamespace] = pod.Namespace
+	tags[p.PodNameLabelName] = pod.Name
+	tags[p.PodNamespaceLabelName] = pod.Namespace
 
 	// add labels as metrics tags, subject to include/exclude filters
 	for k, v := range pod.Labels {
