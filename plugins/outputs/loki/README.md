@@ -68,4 +68,10 @@ to use them.
   ## empty string, this will not add the label. This is NOT suggested as there
   ## is no way to differentiate between multiple metrics.
   # metric_name_label = "__name"
+
+  ## Raw Line Field
+  ## If set and a metric has a field with this name, the Loki log line is the
+  ## raw value of that field (e.g. a JSON string) instead of the default
+  ## logfmt rendering (key="value" ...), like Promtail/Alloy do.
+  # raw_line_field = ""
 ```

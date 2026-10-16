@@ -633,3 +633,39 @@ func TestSanitizeLabelName(t *testing.T) {
 		})
 	}
 }
+
+func TestRawLineField(t *testing.T) {
+	tests := []struct {
+		name     string
+		field    string
+		expected string
+	}{
+		{name: "default logfmt", field: "", expected: `line="{"a":1}" `},
+		{name: "raw field", field: "line", expected: `{"a":1}`},
+		{name: "missing field falls back", field: "nope", expected: `line="{"a":1}" `},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got string
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var s Request
+				if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				got = s.Streams[0].Logs[0][1]
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer ts.Close()
+
+			m := metric.New("log", map[string]string{"key1": "value1"},
+				map[string]any{"line": `{"a":1}`}, time.Unix(123, 0))
+
+			l := Loki{Domain: ts.URL, RawLineField: tt.field}
+			require.NoError(t, l.Connect())
+			require.NoError(t, l.Write([]telegraf.Metric{m}))
+			require.Equal(t, tt.expected, got)
+		})
+	}
+}

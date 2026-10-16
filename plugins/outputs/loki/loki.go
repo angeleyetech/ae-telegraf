@@ -48,6 +48,7 @@ type Loki struct {
 	GZipRequest        bool              `toml:"gzip_request"`
 	MetricNameLabel    string            `toml:"metric_name_label"`
 	SanitizeLabelNames bool              `toml:"sanitize_label_names"`
+	RawLineField       string            `toml:"raw_line_field"`
 
 	url    string
 	client *http.Client
@@ -135,11 +136,16 @@ func (l *Loki) Write(metrics []telegraf.Metric) error {
 			}
 		}
 
-		var lineBuilder strings.Builder
-		for _, f := range m.FieldList() {
-			fmt.Fprintf(&lineBuilder, "%s=\"%v\" ", f.Key, f.Value)
+		var line string
+		if raw, ok := m.GetField(l.RawLineField); ok && l.RawLineField != "" {
+			line = fmt.Sprint(raw)
+		} else {
+			var lineBuilder strings.Builder
+			for _, f := range m.FieldList() {
+				fmt.Fprintf(&lineBuilder, "%s=\"%v\" ", f.Key, f.Value)
+			}
+			line = lineBuilder.String()
 		}
-		line := lineBuilder.String()
 
 		s.insertLog(tags, Log{strconv.FormatInt(m.Time().UnixNano(), 10), line})
 	}
